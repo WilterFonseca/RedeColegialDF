@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wilter & Wesley — Redes DF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  @keyframes pulse-dot { 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+  body { margin:0; background:#efe9db; -webkit-tap-highlight-color:transparent; font-family:'Space Grotesk',sans-serif; color:#20241f; }
+  * { box-sizing:border-box; }
+  ::selection { background:#1f4033; color:#efe9db; }
+  a { color:#1f4033; }
+  ::-webkit-scrollbar { height:0; width:0; }
+  .mono { font-family:'JetBrains Mono',monospace; }
+  .card { background:#f7f3e9; border:1px solid #d6cfbd; border-radius:10px; }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid #e4ded0; }
+  .row:last-child { border-bottom:none; }
+  .label { font-size:11px; color:#6b6656; text-transform:uppercase; font-weight:600; }
+  .muted { color:#6b6656; }
+  .badge { font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px; white-space:nowrap; }
+  .badge.ok { background:#dce8e0; color:#17332a; }
+  .badge.pend { background:#f1e3c8; color:#8a5f22; }
+  .tabbtn { flex:1; min-width:78px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 4px 8px; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; color:#847d68; font-family:'Space Grotesk',sans-serif; }
+  .tabbtn.active { border-bottom-color:#17332a; color:#17332a; }
+  .empty { padding:16px 14px; font-size:12.5px; color:#6b6656; text-align:center; }
+  select.sel { width:100%; padding:11px 12px; border:1px solid #d6cfbd; border-radius:10px; background:#f7f3e9; font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:600; color:#20241f; }
+  .tabpage { display:none; flex-direction:column; gap:16px; }
+  .tabpage.active { display:flex; }
+  form.inline { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed #d6cfbd; }
+  form.inline input, form.inline select { background:#efe9db; border:1px solid #d6cfbd; color:#20241f; padding:8px 10px; border-radius:8px; font-family:'Space Grotesk',sans-serif; font-size:12.5px; flex:1; min-width:110px; }
+  .btn { background:#17332a; color:#efe9db; border:none; padding:8px 16px; border-radius:8px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12.5px; cursor:pointer; }
+  .btn.ghost { background:transparent; border:1px solid #d6cfbd; color:#20241f; }
+  .btn.small { padding:5px 10px; font-size:11.5px; }
+  .admin-panel { border:1px dashed #8a5f22; border-radius:10px; padding:12px; background:#fbf3e3; }
+  .admin-panel .title { font-size:11px; font-weight:700; color:#8a5f22; text-transform:uppercase; margin-bottom:8px; }
+</style>
+</head>
+<body>
+
+<div style="min-height:100vh; background:#efe9db; display:flex; justify-content:center;">
+<div style="width:100%; max-width:560px; min-height:100vh; background:#efe9db; display:flex; flex-direction:column;">
+
+  <div style="background:#17332a; color:#efe9db; padding:18px 18px 14px; display:flex; flex-direction:column; gap:4px;">
+    <div style="font-size:19px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+      <span>Wilter &amp; Wesley</span>
+      <button id="adminBtn" style="background:transparent; border:1px solid rgba(239,233,219,.35); color:#efe9db; font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <span id="adminBtnLabel">Admin</span>
+      </button>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-size:12.5px; opacity:.75; font-weight:500;">Redes DF · financeiro do serviço</div>
+      <div style="display:flex; align-items:center; gap:6px; font-size:11px; opacity:.85;" class="mono">
+        <span style="width:7px; height:7px; border-radius:50%; background:#7fae63; display:inline-block; animation:pulse-dot 1.6s ease-in-out infinite;"></span>
+        <span id="lastUpdateLabel">atualizando...</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; background:#f7f3e9; border-bottom:1px solid #d6cfbd; overflow-x:auto;" id="tabStrip"></div>
+
+  <div style="flex:1; padding:16px 16px 40px;">
+    <div class="tabpage active" id="tab-resumo"></div>
+    <div class="tabpage" id="tab-obras"></div>
+    <div class="tabpage" id="tab-equipe"></div>
+    <div class="tabpage" id="tab-gastos"></div>
+    <div class="tabpage" id="tab-recebimentos"></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://vqvjluufkhzjhigtnssz.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_juxbppxkxS-ZKSdCSKXETg_mfJs1U_m";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const VALOR_PONTO_REDE = 160, VALOR_PONTO_WIFI = 400;
+
+const BRL = v => (Number(v)||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+const brDate = iso => { if(!iso) return '—'; const p = iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}` : iso; };
+const todayStr = () => new Date().toISOString().slice(0,10);
+
+const ICONS = {
+  resumo: '<path d="M4 19V10M10 19V5M16 19V13M22 19V8"></path>',
+  obras: '<path d="M4 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16M12 21v-9a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9M4 21h18M8 8h1M8 12h1M15 12h1"></path>',
+  equipe: '<path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 5 18.5V20M11 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 20v-1.5a3 3 0 0 0-2-2.83M15 4.2a3 3 0 0 1 0 5.6"></path>',
+  gastos: '<path d="M6 3h11a1 1 0 0 1 1 1v17l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.2V4a1 1 0 0 1 1-1Z M9 8h6M9 12h6M9 16h3"></path>',
+  recebimentos: '<path d="M3 7h18v12H3zM3 7l2-3h14l2 3M12 12.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path>',
+};
+const TABS = [
+  {id:'resumo', label:'Resumo'}, {id:'obras', label:'Serviços'}, {id:'equipe', label:'Equipe'},
+  {id:'gastos', label:'Gastos'}, {id:'recebimentos', label:'Recebim.'}
+];
+
+let state = { obras:[], workers:[], expenses:[], attendance:[], advances:[], payments:[] };
+let activeTab = 'resumo';
+let selectedObraId = null;
+let selectedMonth = 'todos';
+let secondsAgo = 0;
+
+const ADMIN_PASSWORD = "40302010";
+let isAdmin = false;
+
+function setupAdminButton(){
+  const btn = document.getElementById('adminBtn');
+  const label = document.getElementById('adminBtnLabel');
+  function refresh(){ label.textContent = isAdmin ? 'Sair do admin' : 'Admin'; }
+  refresh();
+  btn.addEventListener('click', ()=>{
+    if(isAdmin){
+      isAdmin = false;
+      refresh();
+      renderAll();
+      return;
+    }
+    const val = prompt('Senha do admin:');
+    if(val === ADMIN_PASSWORD){
+      isAdmin = true;
+      refresh();
+      renderAll();
+    } else if(val !== null){
+      alert('Senha incorreta.');
+    }
+  });
+}
+
+function svgIcon(name){
+  return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+}
+
+function renderTabStrip(){
+  const strip = document.getElementById('tabStrip');
+  strip.innerHTML = TABS.map(t => `
+    <button class="tabbtn ${activeTab===t.id?'active':''}" data-tab="${t.id}">
+      ${svgIcon(t.id)}
+      <span style="font-size:10.5px; font-weight:600;">${t.label}</span>
+    </button>`).join('');
+  strip.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      activeTab = b.dataset.tab;
+      document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));
+      document.getElementById('tab-'+activeTab).classList.add('active');
+      renderTabStrip();
+    });
+  });
+}
+
+function obraTotal(o){ return (o.pontos_rede||0)*VALOR_PONTO_REDE + (o.pontos_wifi||0)*VALOR_PONTO_WIFI; }
+function obraRecebido(id){ return state.payments.filter(p=>p.obra_id===id).reduce((s,p)=>s+Number(p.amount),0); }
+function attendanceValue(a){
+  const w = state.workers.find(w=>w.id===a.worker_id);
+  if(!w || w.rate==null) return 0;
+  const valorDia = w.rate_type==='dia' ? w.rate*(a.count||1) : w.rate;
+  if(a.paid) return valorDia;
+  return Math.max(valorDia - Number(a.paid_amount||0), 0);
+}
+function advanceBalance(workerId){
+  return state.advances.filter(a=>a.worker_id===workerId).reduce((s,a)=>s+Number(a.balance||0),0);
+}
+function statusStyle(positivo){ return positivo ? 'badge ok' : 'badge pend'; }
+
+async function loadAll(){
+  const [{data:obras},{data:workers},{data:expenses},{data:attendance},{data:advances},{data:payments}] = await Promise.all([
+    sb.from('obras').select('*').order('created_at'),
+    sb.from('workers').select('*').order('name'),
+    sb.from('expenses').select('*').order('date',{ascending:false}),
+    sb.from('attendance').select('*').order('date',{ascending:false}),
+    sb.from('advances').select('*').order('date',{ascending:false}),
+    sb.from('payments').select('*').order('date',{ascending:false}),
+  ]);
+  state = { obras:obras||[], workers:workers||[], expenses:expenses||[], attendance:attendance||[], advances:advances||[], payments:payments||[] };
+  if(!selectedObraId && state.obras.length) selectedObraId = state.obras[0].id;
+  secondsAgo = 0;
+  renderAll();
+}
+
+function renderAll(){
+  renderTabStrip();
+  renderResumo();
+  renderObras();
+  renderEquipe();
+  renderGastos();
+  renderRecebimentos();
+}
+
+/* ===== RESUMO ===== */
+function monthKey(iso){ return iso ? iso.slice(0,7) : null; } // "2026-07"
+function monthLabel(key){
+  const [y,m] = key.split('-');
+  const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return `${nomes[parseInt(m,10)-1]}/${y.slice(2)}`;
+}
+function allMonthsAvailable(){
+  const keys = new Set();
+  [...state.expenses, ...state.payments, ...state.advances].forEach(x=>{ if(x.date) keys.add(monthKey(x.date)); });
+  return [...keys].sort().reverse();
+}
+function daysSince(dateStr){
+  if(!dateStr) return null;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  return Math.floor(diff / (1000*60*60*24));
+}
+
+function renderResumo(){
+  const concluidas = state.obras.filter(o=>o.status==='concluída');
+  const emAndamento = state.obras.filter(o=>o.status!=='concluída');
+
+  const aReceberConcluidas = concluidas.reduce((s,o)=>s+(obraTotal(o)-obraRecebido(o.id)),0);
+  const previsaoFaturamento = emAndamento.reduce((s,o)=>s+(obraTotal(o)-obraRecebido(o.id)),0);
+  const totalRecebido = state.payments.reduce((s,p)=>s+Number(p.amount),0);
+  const totalGasto = state.expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const pendenteReembolso = state.expenses.filter(e=>!e.reimbursed).reduce((s,e)=>s+Number(e.amount),0);
+  const folhaPendente = state.workers.reduce((sum,w)=>{
+    const pend = state.attendance.filter(a=>!a.paid && a.worker_id===w.id).reduce((s,a)=>s+attendanceValue(a),0);
+    return sum + Math.max(pend - advanceBalance(w.id), 0);
+  },0);
+  const saldoCaixa = state.payments.reduce((s,p)=>s+Number(p.remaining||0),0);
+
+  // colégios concluídos com saldo pendente = precisa dar o check de recebido
+  const pendentesConcluidos = concluidas.filter(o=>(obraTotal(o)-obraRecebido(o.id))>0.005);
+
+  const cards = [
+    ['A receber (concluídos)', BRL(aReceberConcluidas), '#17332a'],
+    ['Previsão de faturamento (em andamento)', BRL(previsaoFaturamento), '#4a6b5c'],
+    ['Total recebido', BRL(totalRecebido), '#17332a'],
+    ['Total gasto', BRL(totalGasto), '#20241f'],
+    ['Pendente de reembolso', BRL(pendenteReembolso), '#8a5f22'],
+    ['Folha equipe pendente', BRL(folhaPendente), '#8a5f22'],
+  ];
+  const cardsHtml = cards.map(([label,val,color])=>`
+    <div class="card" style="padding:12px;">
+      <div class="label">${label}</div>
+      <div class="mono" style="font-size:20px; font-weight:700; color:${color}; margin-top:6px;">${val}</div>
+    </div>`).join('') + `
+    <div style="background:#17332a; border:1px solid #17332a; border-radius:10px; padding:12px;">
+      <div style="font-size:11px; font-weight:600; color:#a8c7b8; text-transform:uppercase;">Saldo em caixa</div>
+      <div class="mono" style="font-size:20px; font-weight:700; color:#efe9db; margin-top:6px;">${BRL(saldoCaixa)}</div>
+    </div>`;
+
+  const alertaHtml = pendentesConcluidos.length ? `
+    <div class="card" style="padding:13px; border-color:#8a5f22;">
+      <div style="font-size:13px; font-weight:700; color:#8a5f22;">⏳ ${pendentesConcluidos.length} colégio(s) concluído(s) esperando recebimento</div>
+      <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+        ${pendentesConcluidos.map(o=>{
+          const dias = daysSince(o.concluded_at);
+          const saldo = obraTotal(o)-obraRecebido(o.id);
+          return `<div class="row" style="padding:6px 0; border-bottom:1px solid #e4ded0;">
+            <span style="font-size:12.5px; font-weight:600;">${o.name}</span>
+            <span style="font-size:11.5px; color:#8a5f22;">${dias!=null?dias+' dias':'?'} · ${BRL(saldo)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  const byPerson = {};
+  state.expenses.filter(e=>!e.reimbursed).forEach(e=>{ byPerson[e.paid_by]=(byPerson[e.paid_by]||0)+Number(e.amount); });
+  const reembolsoHtml = Object.entries(byPerson).length
+    ? Object.entries(byPerson).map(([p,v])=>`<div class="row"><span style="font-size:13.5px; font-weight:600;">${p}</span><span class="mono" style="font-size:14px; font-weight:600; color:#8a5f22;">${BRL(v)}</span></div>`).join('')
+    : `<div class="empty">Nada pendente.</div>`;
+
+  const months = allMonthsAvailable();
+  const monthOptions = `<option value="todos">Todos os meses</option>` + months.map(m=>`<option value="${m}" ${m===selectedMonth?'selected':''}>${monthLabel(m)}</option>`).join('');
+
+  let feed = [
+    ...state.expenses.map(e=>({data:e.date, tipo:'Gasto', desc:e.description, valor:-e.amount})),
+    ...state.payments.map(p=>({data:p.date, tipo:'Recebimento', desc:p.note, valor:p.amount})),
+    ...state.advances.map(a=>({data:a.date, tipo:'Adiantamento', desc:a.worker, valor:-a.amount})),
+  ];
+  if(selectedMonth !== 'todos') feed = feed.filter(f=>monthKey(f.data)===selectedMonth);
+  feed = feed.sort((a,b)=>b.data.localeCompare(a.data)).slice(0,selectedMonth==='todos'?10:100);
+
+  const feedHtml = feed.length ? feed.map(f=>`
+    <div class="row" style="align-items:center; gap:10px;">
+      <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+        <span style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${f.desc||''}</span>
+        <span style="font-size:11px; color:#6b6656;">${brDate(f.data)} · ${f.tipo}</span>
+      </div>
+      <span class="mono" style="font-size:13.5px; font-weight:700; white-space:nowrap; color:${f.valor>0?'#17332a':'#8a5f22'};">${f.valor>0?'+ ':'− '}${BRL(Math.abs(f.valor))}</span>
+    </div>`).join('') : `<div class="empty">Sem lançamentos nesse período.</div>`;
+
+  document.getElementById('tab-resumo').innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">${cardsHtml}</div>
+    ${alertaHtml}
+    <div>
+      <div style="font-size:14px; font-weight:700; margin-bottom:8px;">A reembolsar por pessoa</div>
+      <div class="card" style="overflow:hidden;">${reembolsoHtml}</div>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:14px; font-weight:700;">Últimos lançamentos</div>
+      </div>
+      <select class="sel" id="monthSelect" style="margin-bottom:8px;">${monthOptions}</select>
+      <div class="card" style="overflow:hidden;">${feedHtml}</div>
+    </div>`;
+
+  const monthSelect = document.getElementById('monthSelect');
+  if(monthSelect) monthSelect.addEventListener('change', e=>{ selectedMonth = e.target.value; renderResumo(); });
+}
+
+/* ===== OBRAS ===== */
+function renderObras(){
+  const cardsHtml = state.obras.map(o=>{
+    const total=obraTotal(o), recebido=obraRecebido(o.id), saldo=total-recebido;
+    const positivo = o.status==='concluída';
+    const dias = positivo ? daysSince(o.concluded_at) : null;
+    const adminAction = (isAdmin && !positivo)
+      ? `<button class="btn small" style="margin-top:10px;" onclick="marcarConcluida('${o.id}')">Marcar como concluída</button>`
+      : '';
+    return `
+    <div class="card" style="padding:13px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div style="font-size:14px; font-weight:700; line-height:1.25;">${o.name}</div>
+        <span class="${statusStyle(positivo)}">${o.status}${dias!=null && saldo>0.005 ? ` · ${dias}d` : ''}</span>
+      </div>
+      <div style="font-size:11.5px; color:#6b6656; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} pontos WiFi</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px;">
+        <div><div class="label" style="font-size:10px;">Contrato</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(total)}</div></div>
+        <div><div class="label" style="font-size:10px;">Recebido</div><div class="mono" style="font-size:13px; font-weight:700; color:#17332a;">${BRL(recebido)}</div></div>
+        <div><div class="label" style="font-size:10px;">Saldo</div><div class="mono" style="font-size:13px; font-weight:700; color:#8a5f22;">${BRL(saldo)}</div></div>
+      </div>
+      ${adminAction}
+    </div>`;
+  }).join('') || `<div class="empty">Nenhum colégio cadastrado.</div>`;
+
+  const options = state.obras.map(o=>`<option value="${o.id}" ${o.id===selectedObraId?'selected':''}>${o.name}</option>`).join('');
+
+  const o = state.obras.find(x=>x.id===selectedObraId);
+  const items = [];
+  if(o){
+    state.payments.filter(p=>p.obra_id===o.id).forEach(p=>items.push({data:p.date, desc:'Recebimento — '+p.note, valor:p.amount, cor:'#17332a'}));
+    state.expenses.filter(e=>e.obra_id===o.id).forEach(e=>items.push({data:e.date, desc:e.description, valor:-e.amount, cor:'#8a5f22'}));
+    state.attendance.filter(a=>a.obra_id===o.id).forEach(a=>{
+      const w = state.workers.find(w=>w.id===a.worker_id);
+      items.push({data:a.date, desc:`Frequência — ${w?w.name:'?'}`, valor:null, cor:'#6b6656'});
+    });
+    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Adiantamento — '+a.worker, valor:-a.amount, cor:'#8a5f22'}));
+  }
+  items.sort((a,b)=>b.data.localeCompare(a.data));
+  const extratoHtml = items.length ? items.map(it=>`
+    <div class="row">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <span style="font-size:13px; font-weight:600;">${it.desc}</span>
+        <span style="font-size:11px; color:#6b6656;">${brDate(it.data)}</span>
+      </div>
+      <span class="mono" style="font-size:13.5px; font-weight:700; color:${it.cor};">${it.valor===null?'—':(it.valor>0?'+ ':'− ')+BRL(Math.abs(it.valor))}</span>
+    </div>`).join('') : `<div class="empty">Nenhum lançamento para este colégio.</div>`;
+
+  const adminForm = isAdmin ? `
+    <div class="admin-panel">
+      <div class="title">Admin · novo colégio</div>
+      <form class="inline" id="formObra">
+        <input name="name" placeholder="Nome do colégio" required>
+        <input name="pontos_rede" type="number" min="0" placeholder="Pontos de rede" required>
+        <input name="pontos_wifi" type="number" min="0" placeholder="Racks" required>
+        <button type="submit" class="btn">Cadastrar</button>
+      </form>
+    </div>` : '';
+
+  document.getElementById('tab-obras').innerHTML = `
+    <div style="font-size:14px; font-weight:700;">Colégios — contratos</div>
+    <div style="display:flex; flex-direction:column; gap:14px;">${cardsHtml}</div>
+    ${adminForm}
+    <div style="margin-top:6px;">
+      <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Extrato por colégio</div>
+      <select class="sel" id="obraSelect">${options}</select>
+      <div class="card" style="overflow:hidden; margin-top:8px;">${extratoHtml}</div>
+    </div>`;
+  const selEl = document.getElementById('obraSelect');
+  if(selEl) selEl.addEventListener('change', e=>{ selectedObraId = e.target.value; renderObras(); });
+
+  const formObra = document.getElementById('formObra');
+  if(formObra) formObra.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const f = new FormData(e.target);
+    await sb.from('obras').insert({
+      name: f.get('name'), pontos_rede: parseInt(f.get('pontos_rede'),10), pontos_wifi: parseInt(f.get('pontos_wifi'),10), status:'em andamento'
+    });
+    await loadAll();
+  });
+}
+
+async function marcarConcluida(obraId){
+  if(!confirm('Marcar esse colégio como concluído?')) return;
+  await sb.from('obras').update({ status:'concluída', concluded_at:new Date().toISOString() }).eq('id', obraId);
+  await loadAll();
+}
+
+/* ===== EQUIPE ===== */
+function renderEquipe(){
+  const cardsHtml = state.workers.map(w=>{
+    const pend = state.attendance.filter(a=>!a.paid && a.worker_id===w.id);
+    const valorPendente = pend.reduce((s,a)=>s+attendanceValue(a),0);
+    const adiant = advanceBalance(w.id);
+    const net = valorPendente - adiant;
+    const payAction = (isAdmin && net>0.005) ? `
+      <form class="inline" style="margin-top:10px; border-top:none; padding-top:0;" onsubmit="return pagarFolhaSubmit(event,'${w.id}')">
+        <input type="number" step="0.01" placeholder="Valor a pagar" name="valor" required style="flex:1;">
+        <button type="submit" class="btn small">Pagar</button>
+      </form>` : '';
+    return `
+    <div class="card" style="padding:13px;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <div style="font-size:14px; font-weight:700;">${w.name}</div>
+        <div style="font-size:11px; color:#6b6656;">${w.rate!=null?`diária ${BRL(w.rate)}`:'sem valor cadastrado'}</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px;">
+        <div><div class="label" style="font-size:10px;">Dias pendentes</div><div class="mono" style="font-size:13px; font-weight:700;">${pend.length} (${BRL(valorPendente)})</div></div>
+        <div><div class="label" style="font-size:10px;">Adiantado</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(adiant)}</div></div>
+        <div><div class="label" style="font-size:10px;">Saldo líquido</div><div class="mono" style="font-size:13px; font-weight:700; color:${net>=0?'#8a5f22':'#17332a'};">${BRL(net)}</div></div>
+      </div>
+      ${payAction}
+    </div>`;
+  }).join('') || `<div class="empty">Nenhum funcionário cadastrado.</div>`;
+
+  const adiantHtml = state.advances.length ? state.advances.map(a=>`
+    <div class="row">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <span style="font-size:13px; font-weight:600;">${a.worker}</span>
+        <span style="font-size:11px; color:#6b6656;">${brDate(a.date)}</span>
+      </div>
+      <span class="mono" style="font-size:13.5px; font-weight:700;">${BRL(a.amount)}</span>
+    </div>`).join('') : `<div class="empty">Nenhum adiantamento registrado.</div>`;
+
+  const freqHtml = state.attendance.length ? state.attendance.map(a=>{
+    const w = state.workers.find(w=>w.id===a.worker_id);
+    return `
+    <div class="row">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <span style="font-size:13px; font-weight:600;">${w?w.name:'?'}</span>
+        <span style="font-size:11px; color:#6b6656;">${brDate(a.date)}</span>
+      </div>
+      <span class="${statusStyle(a.paid)}">${a.paid?'pago':(Number(a.paid_amount||0)>0?'parcial':'pendente')}</span>
+      ${(!a.paid && Number(a.paid_amount||0)>0) ? `<span style="font-size:10.5px; color:#6b6656; margin-left:6px;">resta ${BRL(attendanceValue(a))}</span>` : ''}
+    </div>`;
+  }).join('') : `<div class="empty">Nenhum registro de frequência.</div>`;
+
+  const adminForms = isAdmin ? `
+    <div class="admin-panel">
+      <div class="title">Admin · novo funcionário</div>
+      <form class="inline" id="formWorker">
+        <input name="name" placeholder="Nome" required>
+        <input name="rate" type="number" step="0.01" placeholder="Valor" required>
+        <select name="rate_type"><option value="dia">Por dia</option><option value="mes">Por mês</option></select>
+        <button type="submit" class="btn">Adicionar</button>
+      </form>
+    </div>
+    <div class="admin-panel">
+      <div class="title">Admin · registrar frequência</div>
+      <form class="inline" id="formAttendance">
+        <select name="worker_id">${state.workers.map(w=>`<option value="${w.id}">${w.name}</option>`).join('')}</select>
+        <select name="obra_id">${state.obras.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select>
+        <input name="date" type="date" required>
+        <input name="count" type="number" min="1" value="1" placeholder="Qtd">
+        <button type="submit" class="btn">Registrar</button>
+      </form>
+    </div>
+    <div class="admin-panel">
+      <div class="title">Admin · novo adiantamento</div>
+      <form class="inline" id="formAdvance">
+        <select name="worker_select">${state.workers.map(w=>`<option value="${w.name}" data-id="${w.id}">${w.name}</option>`).join('')}</select>
+        <select name="obra_id">${state.obras.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select>
+        <input name="date" type="date" required>
+        <input name="amount" type="number" step="0.01" placeholder="Valor" required>
+        <select name="paid_by"><option>Wesley</option><option>Wilter</option></select>
+        <button type="submit" class="btn">Registrar</button>
+      </form>
+    </div>` : '';
+
+  document.getElementById('tab-equipe').innerHTML = `
+    <div style="font-size:14px; font-weight:700;">Saldo líquido com a equipe</div>
+    <div style="display:flex; flex-direction:column; gap:14px;">${cardsHtml}</div>
+    ${adminForms}
+    <div style="margin-top:4px;">
+      <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Adiantamentos</div>
+      <div class="card" style="overflow:hidden;">${adiantHtml}</div>
+    </div>
+    <div>
+      <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Frequência</div>
+      <div class="card" style="overflow:hidden;">${freqHtml}</div>
+    </div>`;
+
+  const formWorker = document.getElementById('formWorker');
+  if(formWorker) formWorker.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const f = new FormData(e.target);
+    await sb.from('workers').insert({ name:f.get('name'), rate:parseFloat(f.get('rate')), rate_type:f.get('rate_type'), active:true });
+    await loadAll();
+  });
+
+  const formAttendance = document.getElementById('formAttendance');
+  if(formAttendance){
+    formAttendance.querySelector('[name=date]').value = todayStr();
+    formAttendance.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const f = new FormData(e.target);
+      await sb.from('attendance').insert({ worker_id:f.get('worker_id'), obra_id:f.get('obra_id'), date:f.get('date'), count:parseInt(f.get('count'),10)||1, paid:false });
+      await loadAll();
+    });
+  }
+
+  const formAdvance = document.getElementById('formAdvance');
+  if(formAdvance){
+    formAdvance.querySelector('[name=date]').value = todayStr();
+    formAdvance.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const sel = e.target.querySelector('[name=worker_select]');
+      const workerId = sel.options[sel.selectedIndex].dataset.id;
+      const workerName = sel.value;
+      const amount = parseFloat(f.get('amount'));
+      await sb.from('advances').insert({ worker_id:workerId, worker:workerName, obra_id:f.get('obra_id'), date:f.get('date'), amount, paid_by:f.get('paid_by'), balance:amount });
+      // adiantamento tirado do próprio bolso também vira reembolso pendente
+      await sb.from('expenses').insert({ obra_id:f.get('obra_id'), date:f.get('date'), time:'00:00', category:'Adiantamento equipe', description:`Adiantamento - ${workerName}`, amount, paid_by:f.get('paid_by'), reimbursed:false });
+      await loadAll();
+    });
+  }
+}
+
+async function pagarFolhaSubmit(ev, workerId){
+  ev.preventDefault();
+  const input = ev.target.querySelector('[name=valor]');
+  const valor = parseFloat(input.value);
+  if(!valor || valor<=0) return false;
+  await pagarFolha(workerId, valor);
+  return false;
+}
+
+// mesma lógica do bot do Telegram: quita dias pendentes em ordem, parcial se não der pra cobrir o dia inteiro, sobra vira adiantamento
+async function pagarFolha(workerId, valor){
+  const worker = state.workers.find(w=>w.id===workerId);
+  if(!worker) return;
+  let restante = valor;
+  const pendentes = state.attendance.filter(a=>!a.paid && a.worker_id===workerId).sort((a,b)=>a.date.localeCompare(b.date));
+
+  for(const a of pendentes){
+    if(restante <= 0.005) break;
+    const valorDia = worker.rate_type==='dia' ? worker.rate*(a.count||1) : worker.rate;
+    if(!valorDia || valorDia<=0) continue;
+    const jaPago = Number(a.paid_amount||0);
+    const residual = valorDia - jaPago;
+    if(residual <= 0.005) continue;
+
+    if(restante >= residual){
+      await sb.from('attendance').update({ paid:true, paid_amount:valorDia, settled_date:new Date().toISOString().slice(0,10), settled_from:'pagamento_admin' }).eq('id', a.id);
+      restante -= residual;
+    } else {
+      await sb.from('attendance').update({ paid_amount: jaPago+restante, settled_from:'pagamento_parcial_admin' }).eq('id', a.id);
+      restante = 0;
+    }
+  }
+
+  if(restante > 0.005){
+    await sb.from('advances').insert({ worker_id:workerId, worker:worker.name, date:new Date().toISOString().slice(0,10), amount:restante, paid_by:'Admin', balance:restante });
+  }
+  await loadAll();
+}
+
+/* ===== GASTOS ===== */
+function renderGastos(){
+  const html = state.expenses.length ? state.expenses.map(g=>{
+    const o = state.obras.find(o=>o.id===g.obra_id);
+    return `
+    <div class="card" style="padding:13px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div style="min-width:0;">
+          <div style="font-size:13.5px; font-weight:700; line-height:1.25;">${g.description}</div>
+          <div style="font-size:11px; color:#6b6656; margin-top:2px;">${g.category} · ${o?o.name:'Geral'}</div>
+        </div>
+        <span class="${statusStyle(g.reimbursed)}">${g.reimbursed?'reembolsado':'pendente'}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+        <span style="font-size:11.5px; color:#6b6656;">pago por <strong style="color:#20241f;">${g.paid_by}</strong> · ${brDate(g.date)}</span>
+        <span class="mono" style="font-size:14px; font-weight:700;">${BRL(g.amount)}</span>
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty">Nenhum gasto registrado.</div>`;
+
+  const adminForm = isAdmin ? `
+    <div class="admin-panel">
+      <div class="title">Admin · novo gasto</div>
+      <form class="inline" id="formGasto">
+        <select name="obra_id">${state.obras.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select>
+        <select name="category"><option>Material</option><option>Combustível</option><option>Alimentação</option><option>Mão de obra</option><option>Adiantamento equipe</option><option>Transporte</option><option>Outros</option></select>
+        <input name="description" placeholder="Descrição" required>
+        <input name="amount" type="number" step="0.01" placeholder="Valor" required>
+        <select name="paid_by"><option>Wesley</option><option>Wilter</option></select>
+        <input name="date" type="date" required>
+        <button type="submit" class="btn">Registrar</button>
+      </form>
+    </div>` : '';
+
+  document.getElementById('tab-gastos').innerHTML = `
+    <div style="font-size:14px; font-weight:700;">Gastos do serviço</div>
+    ${adminForm}
+    <div style="display:flex; flex-direction:column; gap:10px;">${html}</div>`;
+
+  const formGasto = document.getElementById('formGasto');
+  if(formGasto){
+    formGasto.querySelector('[name=date]').value = todayStr();
+    formGasto.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const f = new FormData(e.target);
+      await sb.from('expenses').insert({
+        obra_id:f.get('obra_id'), date:f.get('date'), time:new Date().toTimeString().slice(0,5),
+        category:f.get('category'), description:f.get('description'), amount:parseFloat(f.get('amount')),
+        paid_by:f.get('paid_by'), reimbursed:false
+      });
+      await loadAll();
+    });
+  }
+}
+
+/* ===== RECEBIMENTOS ===== */
+function renderRecebimentos(){
+  const html = state.payments.length ? state.payments.map(r=>{
+    const o = state.obras.find(o=>o.id===r.obra_id);
+    return `
+    <div class="card" style="padding:13px;">
+      <div style="font-size:13.5px; font-weight:700;">${o?o.name:'Geral'}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <span style="font-size:11.5px; color:#6b6656;">${brDate(r.date)}</span>
+        <span class="mono" style="font-size:14px; font-weight:700; color:#17332a;">${BRL(r.amount)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+        <span style="font-size:11px; color:#6b6656;">saldo restante</span>
+        <span class="mono" style="font-size:12.5px; font-weight:600; color:#8a5f22;">${BRL(r.remaining)}</span>
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty">Nenhum recebimento registrado.</div>`;
+
+  const adminForm = isAdmin ? `
+    <div class="admin-panel">
+      <div class="title">Admin · novo recebimento</div>
+      <form class="inline" id="formRecebimento">
+        <select name="obra_id">${state.obras.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select>
+        <input name="note" placeholder="Origem / nota" required>
+        <input name="amount" type="number" step="0.01" placeholder="Valor" required>
+        <input name="date" type="date" required>
+        <button type="submit" class="btn">Registrar</button>
+      </form>
+    </div>` : '';
+
+  document.getElementById('tab-recebimentos').innerHTML = `
+    <div style="font-size:14px; font-weight:700;">Recebimentos dos colégios</div>
+    ${adminForm}
+    <div style="display:flex; flex-direction:column; gap:10px;">${html}</div>`;
+
+  const formRecebimento = document.getElementById('formRecebimento');
+  if(formRecebimento){
+    formRecebimento.querySelector('[name=date]').value = todayStr();
+    formRecebimento.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const amount = parseFloat(f.get('amount'));
+      await sb.from('payments').insert({ obra_id:f.get('obra_id'), date:f.get('date'), note:f.get('note'), amount, remaining:amount });
+      await loadAll();
+    });
+  }
+}
+
+setInterval(()=>{
+  secondsAgo += 3;
+  document.getElementById('lastUpdateLabel').textContent = `atualizado há ${secondsAgo}s`;
+}, 3000);
+
+setupAdminButton();
+loadAll();
+setInterval(loadAll, 20000);
+</script>
+</body>
+</html>
