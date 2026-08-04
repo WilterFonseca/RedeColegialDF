@@ -1,338 +1,475 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Redes DF — Controle de Obra</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<style>
-  :root{
-    --bg:#f7f6f3; --panel:#ffffff; --line:#e4e1da; --text:#1c1c1a; --muted:#8b8878;
-    --accent:#2f5d4f; --accent-soft:#e8efec; --amber:#a8763b; --amber-soft:#f5ede1;
-    --mono:'JetBrains Mono', ui-monospace, monospace; --sans:'Space Grotesk', -apple-system, 'Segoe UI', sans-serif;
-  }
-  *{box-sizing:border-box}
-  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh}
-  header{padding:20px 20px 0; background:var(--bg); position:sticky; top:0; z-index:100; border-bottom:1px solid var(--line)}
-  .brand{display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; gap:10px; flex-wrap:wrap}
-  h1{font-size:17px; margin:0; font-weight:700}
-  header .sub{color:var(--muted); font-size:12px; margin-top:2px}
-  .live{font-size:11px; color:var(--accent); display:flex; align-items:center; gap:6px}
-  .live .dot{width:7px; height:7px; border-radius:50%; background:var(--accent); animation:pulse 1.6s infinite}
-  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
-  nav{display:flex; gap:2px; overflow-x:auto}
-  nav button{background:transparent; border:none; border-bottom:2px solid transparent; color:var(--muted); padding:10px 12px; font-family:var(--sans); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap}
-  nav button.active{color:var(--text); border-bottom-color:var(--accent); font-weight:700}
-  main{max-width:920px; margin:0 auto; padding:20px 18px 70px}
-  .panel{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:14px}
-  .panel h2{margin:0 0 4px; font-size:13px; font-weight:700}
-  .panel .desc{color:var(--muted); font-size:12px; margin:0 0 14px}
-  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px}
-  .card{background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:12px}
-  .card .label{font-size:11px; color:var(--muted)}
-  .card .value{font-family:var(--mono); font-size:18px; font-weight:700; margin-top:5px}
-  .value.accent{color:var(--accent)} .value.amber{color:var(--amber)}
-  .table-wrap{width:100%; overflow-x:auto; margin:0 -2px}
-  .table-wrap table{min-width:540px}
-  table{width:100%; border-collapse:collapse; font-size:13px}
-  th{text-align:left; font-size:10.5px; color:var(--muted); font-weight:600; text-transform:uppercase; padding:0 6px 8px}
-  td{padding:9px 6px; border-top:1px solid var(--line)}
-  tr:first-child td{border-top:none}
-  .amount{font-family:var(--mono); font-weight:700; white-space:nowrap}
-  .muted{color:var(--muted)}
-  .badge{font-size:10.5px; padding:2px 8px; border-radius:10px; display:inline-block; white-space:nowrap}
-  .badge.pending{background:var(--amber-soft); color:var(--amber)}
-  .badge.paid{background:var(--accent-soft); color:var(--accent)}
-  .empty{color:var(--muted); font-size:12.5px; padding:20px 0; text-align:center}
-  .tabpage{display:none} .tabpage.active{display:block}
-  select{background:var(--bg); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:6px; font-family:var(--sans); font-size:12.5px; width:100%; margin-bottom:14px}
-</style>
-</head>
-<body>
+// ============================================================
+// Wilter & Wesley — Redes DF — Webhook do Telegram
+// Deploy como Supabase Edge Function: supabase functions deploy telegram-webhook
+//
+// Variáveis de ambiente necessárias (supabase secrets set):
+//   TELEGRAM_BOT_TOKEN   -> token do @BotFather
+//   ANTHROPIC_API_KEY    -> chave da API da Anthropic (pra interpretar a mensagem)
+//   SUPABASE_URL         -> já vem pronta no ambiente da function
+//   SUPABASE_SERVICE_ROLE_KEY -> já vem pronta no ambiente da function
+//   TELEGRAM_USER_MAP    -> (removido) agora fica na tabela telegram_users do banco
+// ============================================================
 
-<header>
-  <div class="brand">
-    <div>
-      <h1>Wilter &amp; Wesley</h1>
-      <div class="sub">Redes DF — controle de obra</div>
-    </div>
-    <div class="live"><span class="dot"></span> ao vivo</div>
-  </div>
-  <nav>
-    <button class="tab-btn active" data-tab="resumo">Resumo</button>
-    <button class="tab-btn" data-tab="obras">Obras</button>
-    <button class="tab-btn" data-tab="equipe">Equipe</button>
-    <button class="tab-btn" data-tab="gastos">Gastos &amp; reembolsos</button>
-    <button class="tab-btn" data-tab="recebimentos">Recebimentos</button>
-  </nav>
-</header>
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-<main>
-  <div class="tabpage active" id="tab-resumo">
-    <div class="panel"><h2>Visão geral</h2><div class="cards" id="resumoCards"></div></div>
-    <div class="panel">
-      <h2>A reembolsar, por pessoa</h2>
-      <p class="desc">Gastos e adiantamentos pagos do próprio bolso, ainda não quitados.</p>
-      <div class="table-wrap"><table><thead><tr><th>Pessoa</th><th>Valor</th></tr></thead><tbody id="resumoReembolsoBody"></tbody></table></div>
-    </div>
-    <div class="panel">
-      <h2>Últimos lançamentos</h2>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th></tr></thead><tbody id="resumoUltimosBody"></tbody></table></div>
-    </div>
-  </div>
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// nomes de quem manda mensagem agora vêm da tabela telegram_users (ver resolveSenderName)
 
-  <div class="tabpage" id="tab-obras">
-    <div class="panel">
-      <h2>Colégios / obras</h2>
-      <div class="table-wrap"><table><thead><tr><th>Colégio</th><th>Pontos de rede</th><th>Pontos WiFi</th><th>Contrato</th><th>Recebido</th><th>Saldo a receber</th><th>Status</th></tr></thead><tbody id="obrasBody"></tbody></table></div>
-      <div class="empty" id="obrasEmpty" style="display:none">Nenhum colégio cadastrado ainda.</div>
-    </div>
-    <div class="panel">
-      <h2>Detalhes do colégio</h2>
-      <select id="obraDetailSelect"></select>
-      <div class="cards" id="obraDetailCards"></div>
-      <h2 style="margin-top:18px">Extrato — últimos lançamentos</h2>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Colégio</th></tr></thead><tbody id="obraExtratoBody"></tbody></table></div>
-      <div class="empty" id="obraExtratoEmpty" style="display:none">Nenhum lançamento pra esse colégio ainda.</div>
-    </div>
-  </div>
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  <div class="tabpage" id="tab-equipe">
-    <div class="panel">
-      <h2>Funcionários / diaristas</h2>
-      <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Valor</th><th>Tipo</th></tr></thead><tbody id="workersBody"></tbody></table></div>
-    </div>
-    <div class="panel">
-      <h2>Saldo com a equipe</h2>
-      <p class="desc">Dias pendentes menos adiantamento já dado a cada um.</p>
-      <div class="table-wrap"><table><thead><tr><th>Funcionário</th><th>Dias pendentes</th><th>Adiantamento a descontar</th><th>Saldo líquido</th></tr></thead><tbody id="teamBalanceBody"></tbody></table></div>
-      <div class="empty" id="teamBalanceEmpty" style="display:none">Nada pendente com a equipe.</div>
-    </div>
-    <div class="panel">
-      <h2>Adiantamentos</h2>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Colégio</th><th>Funcionário</th><th>Adiantado por</th><th>Valor</th><th>Saldo</th></tr></thead><tbody id="advancesBody"></tbody></table></div>
-      <div class="empty" id="advancesEmpty" style="display:none">Nenhum adiantamento registrado.</div>
-    </div>
-    <div class="panel">
-      <h2>Frequência</h2>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Colégio</th><th>Funcionário</th><th>Qtd</th><th>Valor do dia</th><th>Status</th></tr></thead><tbody id="attendanceBody"></tbody></table></div>
-      <div class="empty" id="attendanceEmpty" style="display:none">Nenhum registro de frequência.</div>
-    </div>
-  </div>
-
-  <div class="tabpage" id="tab-gastos">
-    <div class="panel">
-      <h2>Gastos pendentes de reembolso</h2>
-      <div class="table-wrap"><table><thead><tr><th>Data/hora</th><th>Colégio</th><th>Categoria</th><th>Descrição</th><th>Pago por</th><th>Valor</th></tr></thead><tbody id="expensesBody"></tbody></table></div>
-      <div class="empty" id="expensesEmpty" style="display:none">Nenhum gasto pendente.</div>
-    </div>
-    <div class="panel">
-      <h2>Já reembolsados</h2>
-      <div class="table-wrap"><table><thead><tr><th>Quitado em</th><th>Descrição</th><th>Pago por</th><th>Valor</th></tr></thead><tbody id="reimbPaidBody"></tbody></table></div>
-      <div class="empty" id="reimbPaidEmpty" style="display:none">Nenhum reembolso quitado ainda.</div>
-    </div>
-  </div>
-
-  <div class="tabpage" id="tab-recebimentos">
-    <div class="panel">
-      <h2>Valores recebidos</h2>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Colégio</th><th>Origem / nota</th><th>Recebido</th><th>Saldo restante</th></tr></thead><tbody id="paymentsBody"></tbody></table></div>
-      <div class="empty" id="paymentsEmpty" style="display:none">Nenhum recebimento registrado.</div>
-    </div>
-  </div>
-</main>
-
-<script>
-const SUPABASE_URL = "https://vqvjluufkhzjhigtnssz.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_juxbppxkxS-ZKSdCSKXETg_mfJs1U_m";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-let state = { obras:[], workers:[], expenses:[], attendance:[], advances:[], payments:[] };
-
-function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
-function brDate(iso){ if(!iso) return '—'; const p = iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; }
-function obraName(id){ const o = state.obras.find(x=>x.id===id); return o ? o.name : 'Geral'; }
-function workerRate(worker){ return worker || { rate:0, rate_type:'dia' }; }
-function attendanceValue(a){
-  const w = state.workers.find(w=>w.id===a.worker_id);
-  if(!w || w.rate==null) return null;
-  return w.rate_type === 'dia' ? w.rate * (a.count||1) : w.rate;
-}
-function getAdvanceBalance(workerId){
-  return state.advances.filter(a=>a.worker_id===workerId).reduce((s,a)=>s+Number(a.balance||0),0);
-}
-
-async function loadAll(){
-  const [{data:obras}, {data:workers}, {data:expenses}, {data:attendance}, {data:advances}, {data:payments}] = await Promise.all([
-    sb.from('obras').select('*').order('created_at'),
-    sb.from('workers').select('*').order('name'),
-    sb.from('expenses').select('*').order('date', {ascending:false}),
-    sb.from('attendance').select('*').order('date', {ascending:false}),
-    sb.from('advances').select('*').order('date', {ascending:false}),
-    sb.from('payments').select('*').order('date', {ascending:false}),
-  ]);
-  state.obras = obras || [];
-  state.workers = workers || [];
-  state.expenses = expenses || [];
-  state.attendance = attendance || [];
-  state.advances = advances || [];
-  state.payments = payments || [];
-  populateObraDetailSelect();
-  renderAll();
-}
-
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+async function sendTelegram(chatId: number | string, text: string) {
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
   });
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Telegram sendMessage falhou:", res.status, body);
+  }
+}
+
+// manda a pergunta com botões (o usuário toca, não precisa digitar)
+async function sendTelegramButtons(chatId: number | string, text: string, buttons: { label: string; data: string }[]) {
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      reply_markup: {
+        inline_keyboard: buttons.map(b => [{ text: b.label, callback_data: b.data }]),
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Telegram sendMessage (botões) falhou:", res.status, body);
+  }
+}
+
+// confirma o toque no botão (tira o "relógio de carregando" do Telegram)
+async function answerCallback(callbackQueryId: string, text?: string) {
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text: text || "" }),
+  });
+  if (!res.ok) console.error("Telegram answerCallbackQuery falhou:", res.status, await res.text());
+}
+
+async function downloadTelegramPhoto(fileId: string): Promise<string> {
+  const fileInfo = await fetch(
+    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
+  ).then(r => r.json());
+  const filePath = fileInfo.result.file_path;
+  const fileRes = await fetch(
+    `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`
+  );
+  const buf = new Uint8Array(await fileRes.arrayBuffer());
+  let binary = "";
+  buf.forEach(b => (binary += String.fromCharCode(b)));
+  return btoa(binary); // base64
+}
+
+// pede pro Claude classificar e extrair os dados da mensagem
+async function interpretMessage(text: string, imageBase64: string | null, knownWorkers: string[], knownObras: string[]) {
+  const systemPrompt = `Você lê mensagens curtas e informais em português (ou foto de comprovante) sobre uma obra de instalação de redes e devolve APENAS um JSON, nada mais.
+
+Funcionários já cadastrados: ${knownWorkers.join(", ") || "nenhum ainda"}.
+Colégios/obras já cadastrados: ${knownObras.join(", ") || "nenhum ainda"}.
+
+Tipos possíveis de "type":
+- "gasto": alguém comprou algo pra obra (material, combustível, alimentação, etc).
+  campos: descricao, valor (number), categoria (Material/Combustível/Alimentação/Transporte/Outros), pago_por (nome de pessoa, ou null se não disser), colegio (nome, ou null)
+- "pagamento_funcionario": pagamento feito a um funcionário/diarista (quita dias trabalhados ou adianta).
+  campos: funcionario, valor (number), pago_por (quem tirou o dinheiro, ou null), colegio (nome, ou null)
+- "frequencia": alguém foi trabalhar num dia.
+  campos: funcionario, quantidade (number, default 1), data (null se for "hoje"), colegio (nome, ou null)
+- "definir_valor_funcionario": definir/alterar o valor da diária ou mensal de alguém.
+  campos: funcionario, valor (number), tipo ("dia" ou "mes")
+- "colegio_novo": um colégio/obra nova.
+  campos: nome, pontos_rede (number), pontos_wifi (number)
+- "recebimento": a empresa recebeu um pagamento de um colégio.
+  campos: valor (number), colegio (nome, ou null), nota (texto curto)
+- "desconhecido": não deu pra entender, ou falta um campo obrigatório (ex: não tem valor numérico claro).
+  campos: motivo
+
+Regras importantes:
+- "valor" tem que ser um número (aceite "cento e sessenta" = 160, "160 reais" = 160, "R$160" = 160). Se não conseguir extrair um número claro, responda "desconhecido".
+- Nunca invente nome de funcionário, colégio ou valor que não esteja na mensagem.
+- Na dúvida entre dois tipos, prefira "desconhecido" a chutar — é melhor perguntar de novo do que registrar errado.
+- Se a mensagem tiver uma foto de comprovante, o valor total geralmente está no campo "Total" do recibo.
+
+Exemplos:
+"Aguinaldo saiu comprou parafuso, foi 30 reais" -> {"type":"gasto","descricao":"Parafuso","valor":30,"categoria":"Material","pago_por":"Aguinaldo","colegio":null}
+"paguei o Aguinaldo 500" -> {"type":"pagamento_funcionario","funcionario":"Aguinaldo","valor":500,"pago_por":null,"colegio":null}
+"Marcos veio hoje, só ele" -> {"type":"frequencia","funcionario":"Marcos","quantidade":1,"data":null,"colegio":null}
+"recebemos 2000 do CEM 02" -> {"type":"recebimento","valor":2000,"colegio":"CEM 02","nota":null}
+"bom dia" -> {"type":"desconhecido","motivo":"não é um lançamento"}
+
+Responda SOMENTE o JSON, sem markdown, sem texto antes ou depois.`;
+
+  const content: any[] = [{ type: "text", text }];
+  if (imageBase64) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: "image/jpeg", data: imageBase64 },
+    });
+  }
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 500,
+      temperature: 0,
+      system: systemPrompt,
+      messages: [{ role: "user", content }],
+    }),
+  }).then(r => r.json());
+
+  if (res.type === "error") {
+    console.error("Anthropic API retornou erro:", JSON.stringify(res.error));
+    return { type: "desconhecido", motivo: "erro ao consultar a IA (confira a ANTHROPIC_API_KEY)" };
+  }
+
+  if (!res.content) {
+    console.error("Resposta da Anthropic sem 'content'. Resposta completa:", JSON.stringify(res));
+  }
+
+  let raw = (res.content?.find((b: any) => b.type === "text")?.text || "{}").trim();
+  // tira cercas de markdown, tipo ```json ... ``` , se vierem por algum motivo
+  raw = raw.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+
+  function tryParse(text: string) {
+    try { return JSON.parse(text); } catch { return null; }
+  }
+
+  let out = tryParse(raw);
+  if (!out) {
+    // fallback: extrai só o primeiro bloco { ... } no meio do texto, caso tenha vindo com algo a mais
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) out = tryParse(match[0]);
+  }
+
+  if (!out) {
+    console.error("Não consegui parsear resposta da Anthropic. Texto recebido:", raw);
+    return { type: "desconhecido", motivo: "não consegui ler a resposta" };
+  }
+
+  // valida números essenciais antes de deixar seguir — evita gravar lixo no banco
+  if (["gasto", "pagamento_funcionario", "recebimento"].includes(out.type)) {
+    if (typeof out.valor !== "number" || isNaN(out.valor) || out.valor <= 0) {
+      return { type: "desconhecido", motivo: "não consegui identificar um valor válido" };
+    }
+  }
+  return out;
+}
+
+async function findWorkerCandidates(name: string) {
+  const { data } = await supabase
+    .from("workers")
+    .select("*")
+    .ilike("name", `%${name}%`);
+  return data || [];
+}
+
+// busca o nome cadastrado pra esse Telegram ID direto no banco.
+// se ninguém cadastrou ainda, usa o primeiro nome do perfil do Telegram como fallback.
+async function resolveSenderName(telegramId: string, username: string | undefined, telegramFirstName: string): Promise<string> {
+  const { data: byId } = await supabase
+    .from("telegram_users")
+    .select("name")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+  if (byId?.name) return byId.name;
+
+  if (username) {
+    const { data: byUsername } = await supabase
+      .from("telegram_users")
+      .select("name, telegram_id")
+      .ilike("username", username)
+      .maybeSingle();
+    if (byUsername?.name) {
+      // já que a pessoa mandou mensagem, aproveita e preenche o telegram_id
+      // pra próxima vez a busca ser direta (mais rápida e confiável que username, que pode mudar)
+      if (!byUsername.telegram_id) {
+        await supabase.from("telegram_users").update({ telegram_id: telegramId }).ilike("username", username);
+      }
+      return byUsername.name;
+    }
+  }
+
+  return telegramFirstName || "Desconhecido";
+}
+
+async function findObra(name: string | null) {
+  if (!name) {
+    const { data } = await supabase.from("obras").select("*").eq("status", "em andamento");
+    return data?.length === 1 ? data[0] : null; // só assume sozinho se houver 1 obra ativa
+  }
+  const { data } = await supabase.from("obras").select("*").ilike("name", `%${name}%`).limit(1);
+  return data?.[0] || null;
+}
+
+function fmt(n: number) {
+  return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function executeFrequencia(worker: any, parsed: any, chatId: number | string, senderName: string) {
+  const obra = await findObra(parsed.colegio);
+  await supabase.from("attendance").insert({
+    obra_id: obra?.id || null,
+    worker_id: worker.id,
+    date: parsed.data || new Date().toISOString().slice(0, 10),
+    count: parsed.quantidade || 1,
+    paid: false,
+    reported_by: senderName,
+  });
+  const valorTxt = worker.rate
+    ? ` (${fmt(worker.rate * (parsed.quantidade || 1))})`
+    : " (sem valor de diária cadastrado ainda)";
+  await sendTelegram(chatId, `✅ Frequência registrada: *${worker.name}*, ${parsed.quantidade || 1} pessoa(s)${valorTxt}`);
+}
+
+async function executeDefinirValor(worker: any, parsed: any, chatId: number | string) {
+  await supabase.from("workers").update({ rate: parsed.valor, rate_type: parsed.tipo || worker.rate_type }).eq("id", worker.id);
+  await sendTelegram(chatId, `✅ ${worker.name}: valor atualizado pra ${fmt(parsed.valor)} por ${parsed.tipo === "mes" ? "mês" : "dia"}.`);
+}
+
+async function executePagamento(worker: any, parsed: any, chatId: number | string, senderName: string) {
+  const obra = await findObra(parsed.colegio);
+  let restante = parsed.valor;
+
+  const { data: pendentes } = await supabase
+    .from("attendance")
+    .select("*, workers(rate,rate_type)")
+    .eq("worker_id", worker.id)
+    .eq("paid", false)
+    .order("date", { ascending: true });
+
+  for (const a of pendentes || []) {
+    if (restante <= 0) break;
+    const valorDia = (a.workers?.rate || 0) * (a.count || 1);
+    if (valorDia <= 0) continue;
+    if (restante >= valorDia) {
+      await supabase.from("attendance").update({
+        paid: true, paid_amount: valorDia,
+        settled_date: new Date().toISOString().slice(0, 10), settled_from: "pagamento_telegram",
+      }).eq("id", a.id);
+      restante -= valorDia;
+    }
+  }
+
+  if (restante > 0.005) {
+    await supabase.from("advances").insert({
+      obra_id: obra?.id || null,
+      worker_id: worker.id,
+      date: new Date().toISOString().slice(0, 10),
+      amount: restante,
+      paid_by: parsed.pago_por || senderName,
+      balance: restante,
+      reported_by: senderName,
+    });
+  }
+
+  await sendTelegram(
+    chatId,
+    `✅ Pagamento de ${fmt(parsed.valor)} pra *${worker.name}* registrado.` +
+      (restante > 0.005 ? `\nSobrou ${fmt(restante)} que virou adiantamento (abate dias futuros).` : `\nQuitou as diárias pendentes.`)
+  );
+}
+
+// resolve o nome citado pra um funcionário exato.
+// - 0 candidatos: cria funcionário novo (frequencia/definir_valor) OU avisa que não achou (pagamento)
+// - 1 candidato: segue direto
+// - 2+ candidatos: manda botões e PÁRA — a escolha volta como callback_query
+async function resolveWorkerOrAsk(
+  parsed: any, chatId: number | string, senderName: string
+): Promise<any | null> {
+  const candidates = await findWorkerCandidates(parsed.funcionario);
+
+  if (candidates.length === 1) return candidates[0];
+
+  if (candidates.length === 0) {
+    if (parsed.type === "pagamento_funcionario") {
+      await sendTelegram(chatId, `❓ Não achei *${parsed.funcionario}* cadastrado. Confere o nome ou registra a frequência dele primeiro.`);
+      return null;
+    }
+    const { data: created } = await supabase
+      .from("workers")
+      .insert({ name: parsed.funcionario, rate: parsed.valor || null, rate_type: parsed.tipo || "dia" })
+      .select()
+      .single();
+    if (parsed.type === "frequencia") {
+      await sendTelegram(chatId, `👤 Cadastrei *${parsed.funcionario}* como novo funcionário. Me fala o valor da diária dele (ex: "${parsed.funcionario} diária 500").`);
+    }
+    return created;
+  }
+
+  // ambíguo: mais de um nome parecido (ex: "Marcos" -> "Marcos L" e "Marcos H")
+  const { data: pending } = await supabase
+    .from("pending_actions")
+    .insert({ chat_id: String(chatId), parsed, sender_name: senderName })
+    .select()
+    .single();
+
+  await sendTelegramButtons(
+    chatId,
+    `Tem mais de um "${parsed.funcionario}" cadastrado. Qual deles?`,
+    candidates.map((w: any) => ({ label: w.name, data: `pick:${pending.id}:${w.id}` }))
+  );
+  return null; // já respondemos; a ação continua quando o botão for tocado
+}
+
+async function handleCallback(callback: any) {
+  const chatId = callback.message.chat.id;
+  const [, pendingId, workerId] = String(callback.data).split(":");
+
+  const { data: pending } = await supabase.from("pending_actions").select("*").eq("id", pendingId).single();
+  const { data: worker } = await supabase.from("workers").select("*").eq("id", workerId).single();
+
+  if (!pending || !worker) {
+    await answerCallback(callback.id, "Essa escolha expirou, manda a mensagem de novo.");
+    return;
+  }
+
+  const parsed = pending.parsed;
+  await answerCallback(callback.id, `Ok, ${worker.name}`);
+
+  if (parsed.type === "frequencia") await executeFrequencia(worker, parsed, chatId, pending.sender_name);
+  else if (parsed.type === "definir_valor_funcionario") await executeDefinirValor(worker, parsed, chatId);
+  else if (parsed.type === "pagamento_funcionario") await executePagamento(worker, parsed, chatId, pending.sender_name);
+
+  await supabase.from("pending_actions").delete().eq("id", pendingId);
+}
+
+Deno.serve(async (req) => {
+  const update = await req.json();
+
+  // idempotência: o Telegram reenvia a mesma mensagem se a resposta demorar.
+  // Se já processamos esse update_id (violação de chave única = duplicata real), ignora.
+  // Qualquer OUTRO tipo de erro aqui (ex: tabela não existe) não deve travar o bot inteiro —
+  // melhor logar e seguir processando do que falhar calado.
+  if (update.update_id != null) {
+    const { error: dupError } = await supabase.from("processed_updates").insert({ update_id: update.update_id });
+    if (dupError) {
+      if (dupError.code === "23505") {
+        return new Response("ok"); // duplicata de verdade, já processamos essa antes
+      }
+      console.error("Erro inesperado checando duplicidade (seguindo mesmo assim):", dupError.message);
+    }
+  }
+
+  if (update.callback_query) {
+    await handleCallback(update.callback_query);
+    return new Response("ok");
+  }
+
+  const message = update.message;
+  if (!message) return new Response("ok");
+
+  const chatId = message.chat.id;
+  const senderId = String(message.from.id);
+  const senderName = await resolveSenderName(senderId, message.from.username, message.from.first_name);
+  const text = message.text || message.caption || "";
+
+  let imageBase64: string | null = null;
+  if (message.photo) {
+    const largest = message.photo[message.photo.length - 1];
+    imageBase64 = await downloadTelegramPhoto(largest.file_id);
+  }
+
+  if (!text && !imageBase64) {
+    await sendTelegram(chatId, "Manda um texto ou uma foto do comprovante 🙂");
+    return new Response("ok");
+  }
+
+  const { data: workersData } = await supabase.from("workers").select("name");
+  const { data: obrasData } = await supabase.from("obras").select("name");
+  const knownWorkers = (workersData || []).map((w: any) => w.name);
+  const knownObras = (obrasData || []).map((o: any) => o.name);
+
+  const parsed = await interpretMessage(text, imageBase64, knownWorkers, knownObras);
+
+  await supabase.from("telegram_log").insert({
+    telegram_user_id: senderId,
+    telegram_name: senderName,
+    raw_message: text || "[foto]",
+    parsed_type: parsed.type,
+    parsed_payload: parsed,
+    status: "ok",
+  });
+
+  try {
+    if (parsed.type === "gasto") {
+      const obra = await findObra(parsed.colegio);
+      await supabase.from("expenses").insert({
+        obra_id: obra?.id || null,
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toTimeString().slice(0, 5),
+        category: parsed.categoria || "Outros",
+        description: parsed.descricao,
+        amount: parsed.valor,
+        paid_by: parsed.pago_por || senderName,
+        reimbursed: false,
+        reported_by: senderName,
+      });
+      await sendTelegram(
+        chatId,
+        `✅ Gasto registrado: *${parsed.descricao}* — ${fmt(parsed.valor)}\nPago por: ${parsed.pago_por || senderName}${obra ? `\nColégio: ${obra.name}` : ""}`
+      );
+
+    } else if (parsed.type === "frequencia") {
+      const worker = await resolveWorkerOrAsk(parsed, chatId, senderName);
+      if (worker) await executeFrequencia(worker, parsed, chatId, senderName);
+
+    } else if (parsed.type === "definir_valor_funcionario") {
+      const worker = await resolveWorkerOrAsk(parsed, chatId, senderName);
+      if (worker) await executeDefinirValor(worker, parsed, chatId);
+
+    } else if (parsed.type === "pagamento_funcionario") {
+      const worker = await resolveWorkerOrAsk(parsed, chatId, senderName);
+      if (worker) await executePagamento(worker, parsed, chatId, senderName);
+
+    } else if (parsed.type === "recebimento") {
+      const obra = await findObra(parsed.colegio);
+      await supabase.from("payments").insert({
+        obra_id: obra?.id || null,
+        date: new Date().toISOString().slice(0, 10),
+        note: parsed.nota || "Recebimento",
+        amount: parsed.valor,
+        remaining: parsed.valor,
+        reported_by: senderName,
+      });
+      await sendTelegram(chatId, `✅ Recebimento de ${fmt(parsed.valor)} registrado${obra ? ` — ${obra.name}` : ""}.`);
+
+    } else if (parsed.type === "colegio_novo") {
+      await supabase.from("obras").insert({
+        name: parsed.nome,
+        pontos_rede: parsed.pontos_rede || 0,
+        pontos_wifi: parsed.pontos_wifi || 0,
+        status: "em andamento",
+      });
+      await sendTelegram(chatId, `✅ Colégio *${parsed.nome}* cadastrado (${parsed.pontos_rede} pontos de rede, ${parsed.pontos_wifi} WiFi).`);
+
+    } else {
+      const motivo = parsed.motivo ? ` (${parsed.motivo})` : "";
+      await sendTelegram(chatId, `🤔 Não entendi direito${motivo}. Pode reformular? (ex: "gastei 30 de parafuso" ou "paguei o Aguinaldo 500")`);
+    }
+  } catch (err) {
+    console.error(err);
+    await sendTelegram(chatId, "⚠️ Deu erro ao registrar. Tenta de novo em instantes.");
+  }
+
+  return new Response("ok");
 });
-
-function renderAll(){
-  renderObras(); renderWorkers(); renderTeamBalance(); renderAdvances();
-  renderAttendance(); renderExpenses(); renderPayments(); renderResumo(); renderObraDetail();
-}
-
-const VALOR_PONTO_REDE = 160, VALOR_PONTO_WIFI = 400;
-function obraTotal(o){ return (o.pontos_rede||0)*VALOR_PONTO_REDE + (o.pontos_wifi||0)*VALOR_PONTO_WIFI; }
-function obraRecebido(id){ return state.payments.filter(p=>p.obra_id===id).reduce((s,p)=>s+Number(p.amount),0); }
-function obraGastoTotal(id){
-  const outros = state.expenses.filter(e=>e.obra_id===id && e.category!=='Adiantamento equipe').reduce((s,e)=>s+Number(e.amount),0);
-  const folha = state.attendance.filter(a=>a.obra_id===id).reduce((s,a)=>s+(attendanceValue(a)||0),0);
-  return outros+folha;
-}
-
-function renderObras(){
-  const tb = document.getElementById('obrasBody');
-  document.getElementById('obrasEmpty').style.display = state.obras.length ? 'none':'block';
-  tb.innerHTML = state.obras.map(o=>{
-    const total=obraTotal(o), recebido=obraRecebido(o.id), saldo=total-recebido;
-    return `<tr><td>${o.name}</td><td>${o.pontos_rede} × ${fmt(VALOR_PONTO_REDE)}</td><td>${o.pontos_wifi} × ${fmt(VALOR_PONTO_WIFI)}</td>
-    <td class="amount">${fmt(total)}</td><td class="amount accent">${fmt(recebido)}</td>
-    <td class="amount ${saldo>0?'amber':'muted'}">${fmt(saldo)}</td>
-    <td><span class="badge ${o.status==='concluída'?'paid':'pending'}">${o.status}</span></td></tr>`;
-  }).join('');
-}
-
-function populateObraDetailSelect(){
-  const sel = document.getElementById('obraDetailSelect');
-  const prev = sel.value;
-  sel.innerHTML = state.obras.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-  if(prev && state.obras.some(o=>o.id===prev)) sel.value = prev;
-  sel.onchange = renderObraDetail;
-}
-
-function renderObraDetail(){
-  const sel = document.getElementById('obraDetailSelect');
-  const o = state.obras.find(x=>x.id===sel.value);
-  const cardsEl = document.getElementById('obraDetailCards');
-  const extratoBody = document.getElementById('obraExtratoBody');
-  if(!o){ cardsEl.innerHTML=''; extratoBody.innerHTML=''; return; }
-  const total=obraTotal(o), recebido=obraRecebido(o.id), saldo=total-recebido, gasto=obraGastoTotal(o.id);
-  cardsEl.innerHTML = `
-    <div class="card"><div class="label">Total do contrato</div><div class="value">${fmt(total)}</div></div>
-    <div class="card"><div class="label">A receber</div><div class="value amber">${fmt(saldo)}</div></div>
-    <div class="card"><div class="label">Já gasto</div><div class="value">${fmt(gasto)}</div></div>
-    <div class="card"><div class="label">Recebido</div><div class="value accent">${fmt(recebido)}</div></div>`;
-  const lanc = [
-    ...state.expenses.filter(e=>e.obra_id===o.id).map(e=>({date:e.date, desc:`Gasto — ${e.description} (${e.paid_by})`})),
-    ...state.attendance.filter(a=>a.obra_id===o.id).map(a=>({date:a.date, desc:`Frequência — ${(state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'} (${a.count} pessoa(s))`})),
-    ...state.advances.filter(a=>a.obra_id===o.id).map(a=>({date:a.date, desc:`Adiantamento — ${a.worker} (por ${a.paid_by})`})),
-    ...state.payments.filter(p=>p.obra_id===o.id).map(p=>({date:p.date, desc:`Recebimento — ${p.note}`})),
-  ].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20);
-  document.getElementById('obraExtratoEmpty').style.display = lanc.length?'none':'block';
-  extratoBody.innerHTML = lanc.map(l=>`<tr><td>${brDate(l.date)}</td><td>${l.desc}</td><td class="muted">${o.name}</td></tr>`).join('');
-}
-
-function renderWorkers(){
-  const tb = document.getElementById('workersBody');
-  tb.innerHTML = state.workers.map(w=>`<tr><td>${w.name}</td><td class="amount">${w.rate!=null?fmt(w.rate):'—'}</td><td class="muted">${w.rate_type==='dia'?'por dia':'por mês'}</td></tr>`).join('');
-}
-
-function renderTeamBalance(){
-  const tb = document.getElementById('teamBalanceBody');
-  const rows = state.workers.map(w=>{
-    const pendingTotal = state.attendance.filter(a=>!a.paid && a.worker_id===w.id).reduce((s,a)=>s+(attendanceValue(a)||0),0);
-    const advBal = getAdvanceBalance(w.id);
-    return {name:w.name, pendingTotal, advBal, net: pendingTotal-advBal};
-  }).filter(r=>r.pendingTotal>0 || r.advBal>0);
-  document.getElementById('teamBalanceEmpty').style.display = rows.length?'none':'block';
-  tb.innerHTML = rows.map(r=>{
-    const netLabel = r.net>=0 ? `<span class="amount amber">${fmt(r.net)}</span>` : `<span class="amount muted">crédito de ${fmt(Math.abs(r.net))}</span>`;
-    return `<tr><td>${r.name}</td><td class="amount">${fmt(r.pendingTotal)}</td><td class="amount ${r.advBal>0?'amber':'muted'}">${fmt(r.advBal)}</td><td>${netLabel}</td></tr>`;
-  }).join('');
-}
-
-function renderAdvances(){
-  const tb = document.getElementById('advancesBody');
-  document.getElementById('advancesEmpty').style.display = state.advances.length?'none':'block';
-  tb.innerHTML = state.advances.map(a=>`<tr><td>${brDate(a.date)}</td><td class="muted">${obraName(a.obra_id)}</td><td>${a.worker}</td><td>${a.paid_by}</td><td class="amount">${fmt(a.amount)}</td><td class="amount ${a.balance>0?'amber':'muted'}">${fmt(a.balance)}</td></tr>`).join('');
-}
-
-function renderAttendance(){
-  const tb = document.getElementById('attendanceBody');
-  document.getElementById('attendanceEmpty').style.display = state.attendance.length?'none':'block';
-  tb.innerHTML = state.attendance.map(a=>{
-    const w = state.workers.find(w=>w.id===a.worker_id);
-    const val = attendanceValue(a);
-    const status = a.paid ? `<span class="badge paid">pago</span>` : `<span class="badge pending">pendente</span>`;
-    return `<tr><td>${brDate(a.date)}</td><td class="muted">${obraName(a.obra_id)}</td><td>${w?w.name:'?'}</td><td>${a.count}</td><td class="amount">${val!=null?fmt(val):'—'}</td><td>${status}</td></tr>`;
-  }).join('');
-}
-
-function renderExpenses(){
-  const tbP = document.getElementById('expensesBody');
-  const tbR = document.getElementById('reimbPaidBody');
-  const pending = state.expenses.filter(e=>!e.reimbursed);
-  const paid = state.expenses.filter(e=>e.reimbursed);
-  document.getElementById('expensesEmpty').style.display = pending.length?'none':'block';
-  tbP.innerHTML = pending.map(e=>`<tr><td>${brDate(e.date)} ${e.time||''}</td><td class="muted">${obraName(e.obra_id)}</td><td class="muted">${e.category}</td><td>${e.description}</td><td>${e.paid_by}</td><td class="amount">${fmt(e.amount)}</td></tr>`).join('');
-  document.getElementById('reimbPaidEmpty').style.display = paid.length?'none':'block';
-  tbR.innerHTML = paid.map(e=>`<tr><td>${brDate(e.settled_date||e.date)}</td><td>${e.description}</td><td>${e.paid_by}</td><td class="amount">${fmt(e.amount)}</td></tr>`).join('');
-}
-
-function renderPayments(){
-  const tb = document.getElementById('paymentsBody');
-  document.getElementById('paymentsEmpty').style.display = state.payments.length?'none':'block';
-  tb.innerHTML = state.payments.map(p=>`<tr><td>${brDate(p.date)}</td><td class="muted">${obraName(p.obra_id)}</td><td>${p.note}</td><td class="amount">${fmt(p.amount)}</td><td class="amount">${fmt(p.remaining)}</td></tr>`).join('');
-}
-
-function renderResumo(){
-  const totalGasto = state.expenses.reduce((s,e)=>s+Number(e.amount),0);
-  const totalPendente = state.expenses.filter(e=>!e.reimbursed).reduce((s,e)=>s+Number(e.amount),0);
-  const totalRecebido = state.payments.reduce((s,p)=>s+Number(p.amount),0);
-  const saldoDisp = state.payments.reduce((s,p)=>s+Number(p.remaining||0),0);
-  const aReceberObras = state.obras.reduce((s,o)=>s+(obraTotal(o)-obraRecebido(o.id)),0);
-  const folhaPendente = state.workers.reduce((sum,w)=>{
-    const pend = state.attendance.filter(a=>!a.paid && a.worker_id===w.id).reduce((s,a)=>s+(attendanceValue(a)||0),0);
-    return sum + Math.max(pend - getAdvanceBalance(w.id), 0);
-  },0);
-  document.getElementById('resumoCards').innerHTML = `
-    <div class="card"><div class="label">A receber (colégios)</div><div class="value">${fmt(aReceberObras)}</div></div>
-    <div class="card"><div class="label">Total gasto</div><div class="value">${fmt(totalGasto)}</div></div>
-    <div class="card"><div class="label">Pendente de reembolso</div><div class="value amber">${fmt(totalPendente)}</div></div>
-    <div class="card"><div class="label">Folha pendente (líquida)</div><div class="value amber">${fmt(folhaPendente)}</div></div>
-    <div class="card"><div class="label">Total recebido</div><div class="value accent">${fmt(totalRecebido)}</div></div>
-    <div class="card"><div class="label">Saldo disponível</div><div class="value">${fmt(saldoDisp)}</div></div>`;
-
-  const byPerson = {};
-  state.expenses.filter(e=>!e.reimbursed).forEach(e=>{ byPerson[e.paid_by]=(byPerson[e.paid_by]||0)+Number(e.amount); });
-  document.getElementById('resumoReembolsoBody').innerHTML = Object.entries(byPerson).map(([p,v])=>`<tr><td>${p}</td><td class="amount ${v>0?'amber':'muted'}">${fmt(v)}</td></tr>`).join('') || '<tr><td colspan="2" class="empty">Nada pendente.</td></tr>';
-
-  const feed = [
-    ...state.expenses.map(e=>({date:e.date, type:'Gasto', desc:`${e.description} (${e.paid_by})`, amount:-e.amount})),
-    ...state.payments.map(p=>({date:p.date, type:'Recebimento', desc:p.note, amount:p.amount})),
-    ...state.attendance.map(a=>({date:a.date, type:'Frequência', desc:`${(state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'}`, amount:null})),
-  ].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  document.getElementById('resumoUltimosBody').innerHTML = feed.length
-    ? feed.map(f=>`<tr><td>${brDate(f.date)}</td><td class="muted">${f.type}</td><td>${f.desc}</td><td class="amount">${f.amount===null?'—':fmt(f.amount)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="empty">Sem lançamentos ainda.</td></tr>';
-}
-
-loadAll();
-setInterval(loadAll, 20000); // atualiza sozinho a cada 20s
-</script>
-</body>
-</html>
