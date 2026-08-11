@@ -172,6 +172,11 @@ function advanceBalance(workerId){
   return state.advances.filter(a=>a.worker_id===workerId).reduce((s,a)=>s+Number(a.balance||0),0);
 }
 function statusStyle(positivo){ return positivo ? 'badge ok' : 'badge pend'; }
+function gastoStatusLabel(e){
+  const isSaqueLucro = (e.category||'').toLowerCase().includes('saque');
+  if(isSaqueLucro) return e.reimbursed ? 'pró-labore pago' : 'pró-labore pendente';
+  return e.reimbursed ? 'reembolsado' : 'pendente';
+}
 
 async function loadAll(){
   try{
@@ -310,7 +315,7 @@ function renderResumo(){
                   <span style="font-size:10.5px; color:#6b6656;">${brDate(t.date)} · ${t.category} · ${o?o.name:'Geral'}</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <span class="${statusStyle(t.reimbursed)}" style="font-size:9.5px;">${t.reimbursed?'reembolsado':'pendente'}</span>
+                  <span class="${statusStyle(t.reimbursed)}" style="font-size:9.5px;">${gastoStatusLabel(t)}</span>
                   <span class="mono" style="font-size:12.5px; font-weight:700;">${BRL(t.amount)}</span>
                 </div>
               </div>`;
@@ -454,7 +459,7 @@ function renderObras(){
       const w = state.workers.find(w=>w.id===a.worker_id);
       items.push({data:a.date, desc:`Frequência — ${w?w.name:'?'}`, valor:null, cor:'#6b6656'});
     });
-    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Adiantamento — '+((state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'), valor:-a.amount, cor:'#8a5f22'}));
+    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Saldo de adiantamento (a descontar) — '+((state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'), valor:null, cor:'#6b6656'}));
   }
   items.sort((a,b)=>b.data.localeCompare(a.data));
   const extratoHtml = items.length ? items.map(it=>`
@@ -792,7 +797,7 @@ function renderGastos(){
           <div style="font-size:13.5px; font-weight:700; line-height:1.25;">${g.description}</div>
           <div style="font-size:11px; color:#6b6656; margin-top:2px;">${g.category} · ${o?o.name:'Geral'}</div>
         </div>
-        <span class="${statusStyle(g.reimbursed)}">${g.reimbursed?'reembolsado':'pendente'}</span>
+        <span class="${statusStyle(g.reimbursed)}">${gastoStatusLabel(g)}</span>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
         <span style="font-size:11.5px; color:#6b6656;">pago por <strong style="color:#20241f;">${g.paid_by}</strong> · ${brDate(g.date)}</span>
