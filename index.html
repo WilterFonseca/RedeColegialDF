@@ -78,7 +78,7 @@
 const SUPABASE_URL = "https://vqvjluufkhzjhigtnssz.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_juxbppxkxS-ZKSdCSKXETg_mfJs1U_m";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const VALOR_PONTO_REDE = 160, VALOR_PONTO_WIFI = 400;
+const VALOR_PONTO_REDE = 130, VALOR_PONTO_WIFI = 400;
 
 const BRL = v => (Number(v)||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 const brDate = iso => { if(!iso) return '—'; const p = iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}` : iso; };
@@ -103,6 +103,7 @@ let selectedMonth = 'todos';
 let editingObraId = null;
 let editingWorkerId = null;
 let editingExpenseId = null;
+let expandedPessoa = null;
 let secondsAgo = 0;
 
 const ADMIN_PASSWORD = "40302010";
@@ -155,6 +156,12 @@ function renderTabStrip(){
 function obraTotal(o){ return (o.pontos_rede||0)*VALOR_PONTO_REDE + (o.pontos_wifi||0)*VALOR_PONTO_WIFI; }
 function obraRecebido(id){ return state.payments.filter(p=>p.obra_id===id).reduce((s,p)=>s+Number(p.amount),0); }
 function attendanceValue(a){
+  // valor combinado (fixo) tem prioridade sobre o cálculo por diária
+  if(a.fixed_amount != null){
+    const total = Number(a.fixed_amount);
+    if(a.paid) return total;
+    return Math.max(total - Number(a.paid_amount||0), 0);
+  }
   const w = state.workers.find(w=>w.id===a.worker_id);
   if(!w || w.rate==null) return 0;
   const valorDia = w.rate_type==='dia' ? w.rate*(a.count||1) : w.rate;
@@ -167,27 +174,55 @@ function advanceBalance(workerId){
 function statusStyle(positivo){ return positivo ? 'badge ok' : 'badge pend'; }
 
 async function loadAll(){
-  const [{data:obras},{data:workers},{data:expenses},{data:attendance},{data:advances},{data:payments}] = await Promise.all([
-    sb.from('obras').select('*').order('created_at'),
-    sb.from('workers').select('*').order('name'),
-    sb.from('expenses').select('*').order('date',{ascending:false}),
-    sb.from('attendance').select('*').order('date',{ascending:false}),
-    sb.from('advances').select('*').order('date',{ascending:false}),
-    sb.from('payments').select('*').order('date',{ascending:false}),
-  ]);
-  state = { obras:obras||[], workers:workers||[], expenses:expenses||[], attendance:attendance||[], advances:advances||[], payments:payments||[] };
-  if(!selectedObraId && state.obras.length) selectedObraId = state.obras[0].id;
-  secondsAgo = 0;
-  renderAll();
+  try{
+    const [{data:obras},{data:workers},{data:expenses},{data:attendance},{data:advances},{data:payments}] = await Promise.all([
+      sb.from('obras').select('*').order('created_at'),
+      sb.from('workers').select('*').order('name'),
+      sb.from('expenses').select('*').order('date',{ascending:false}),
+      sb.from('attendance').select('*').order('date',{ascending:false}),
+      sb.from('advances').select('*').order('date',{ascending:false}),
+      sb.from('payments').select('*').order('date',{ascending:false}),
+    ]);
+    state = { obras:obras||[], workers:workers||[], expenses:expenses||[], attendance:attendance||[], advances:advances||[], payments:payments||[] };
+    if(!selectedObraId && state.obras.length) selectedObraId = state.obras[0].id;
+    secondsAgo = 0;
+    hideErrorBanner();
+    renderAll();
+  }catch(err){
+    console.error('Erro em loadAll:', err);
+    showErrorBanner('Erro ao carregar dados: ' + (err && err.message ? err.message : String(err)));
+  }
+}
+
+function showErrorBanner(msg){
+  let b = document.getElementById('fatalErrorBanner');
+  if(!b){
+    b = document.createElement('div');
+    b.id = 'fatalErrorBanner';
+    b.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:999; background:#3a1414; color:#ffb4a8; font-family:monospace; font-size:12px; padding:12px 14px; white-space:pre-wrap; word-break:break-word;';
+    document.body.prepend(b);
+  }
+  b.textContent = msg;
+  b.style.display = 'block';
+}
+function hideErrorBanner(){
+  const b = document.getElementById('fatalErrorBanner');
+  if(b) b.style.display = 'none';
 }
 
 function renderAll(){
-  renderTabStrip();
-  renderResumo();
-  renderObras();
-  renderEquipe();
-  renderGastos();
-  renderRecebimentos();
+  try{
+    renderTabStrip();
+    renderResumo();
+    renderObras();
+    renderEquipe();
+    renderGastos();
+    renderRecebimentos();
+    hideErrorBanner();
+  }catch(err){
+    console.error('Erro em renderAll:', err);
+    showErrorBanner('Erro ao desenhar o painel: ' + (err && err.message ? err.message : String(err)) + (err && err.stack ? '\n' + err.stack.split('\n').slice(0,3).join('\n') : ''));
+  }
 }
 
 /* ===== RESUMO ===== */
@@ -262,7 +297,33 @@ function renderResumo(){
   const byPerson = {};
   state.expenses.filter(e=>!e.reimbursed).forEach(e=>{ byPerson[e.paid_by]=(byPerson[e.paid_by]||0)+Number(e.amount); });
   const reembolsoHtml = Object.entries(byPerson).length
-    ? Object.entries(byPerson).map(([p,v])=>`<div class="row"><span style="font-size:13.5px; font-weight:600;">${p}</span><span class="mono" style="font-size:14px; font-weight:600; color:#8a5f22;">${BRL(v)}</span></div>`).join('')
+    ? Object.entries(byPerson).map(([p,v])=>{
+        const isOpen = expandedPessoa===p;
+        const transacoes = state.expenses.filter(e=>e.paid_by===p).sort((a,b)=>b.date.localeCompare(a.date));
+        const detalheHtml = isOpen ? `
+          <div style="padding:0 14px 10px;">
+            ${transacoes.map(t=>{
+              const o = state.obras.find(o=>o.id===t.obra_id);
+              return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid #e4ded0;">
+                <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                  <span style="font-size:12.5px; font-weight:600;">${t.description}</span>
+                  <span style="font-size:10.5px; color:#6b6656;">${brDate(t.date)} · ${t.category} · ${o?o.name:'Geral'}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="${statusStyle(t.reimbursed)}" style="font-size:9.5px;">${t.reimbursed?'reembolsado':'pendente'}</span>
+                  <span class="mono" style="font-size:12.5px; font-weight:700;">${BRL(t.amount)}</span>
+                </div>
+              </div>`;
+            }).join('') || `<div class="empty">Nenhuma transação encontrada.</div>`}
+          </div>` : '';
+        return `<div>
+          <div class="row" style="cursor:pointer;" onclick="expandedPessoa=expandedPessoa==='${p}'?null:'${p}'; renderResumo();">
+            <span style="font-size:13.5px; font-weight:600;">${p} <span style="color:#6b6656; font-size:11px;">${isOpen?'▲':'▼'} (${transacoes.length})</span></span>
+            <span class="mono" style="font-size:14px; font-weight:600; color:#8a5f22;">${BRL(v)}</span>
+          </div>
+          ${detalheHtml}
+        </div>`;
+      }).join('')
     : `<div class="empty">Nada pendente.</div>`;
 
   const months = allMonthsAvailable();
@@ -271,7 +332,7 @@ function renderResumo(){
   let feed = [
     ...state.expenses.map(e=>({data:e.date, tipo:'Gasto', desc:e.description, valor:-e.amount})),
     ...state.payments.map(p=>({data:p.date, tipo:'Recebimento', desc:p.note, valor:p.amount})),
-    ...state.advances.map(a=>({data:a.date, tipo:'Adiantamento', desc:a.worker, valor:-a.amount})),
+    ...state.advances.map(a=>({data:a.date, tipo:'Adiantamento', desc:(state.workers.find(w=>w.id===a.worker_id)||{}).name||'?', valor:-a.amount})),
   ];
   if(selectedMonth !== 'todos') feed = feed.filter(f=>monthKey(f.data)===selectedMonth);
   feed = feed.sort((a,b)=>b.data.localeCompare(a.data)).slice(0,selectedMonth==='todos'?10:100);
@@ -305,6 +366,17 @@ function renderResumo(){
 }
 
 /* ===== OBRAS ===== */
+const VALOR_MAX_PONTO = 80; // teto de custo de mão de obra por ponto
+function obraLaborBudget(o){ return (o.pontos_rede||0) * VALOR_MAX_PONTO; }
+function obraLaborSpent(obraId){
+  return state.attendance.filter(a=>a.obra_id===obraId).reduce((s,a)=>{
+    if(a.fixed_amount!=null) return s + Number(a.fixed_amount);
+    const w = state.workers.find(w=>w.id===a.worker_id);
+    if(!w || w.rate==null) return s;
+    return s + w.rate * (a.count||1);
+  }, 0);
+}
+
 function renderObras(){
   const cardsHtml = state.obras.map(o=>{
     const total=obraTotal(o), recebido=obraRecebido(o.id), saldo=total-recebido;
@@ -332,18 +404,41 @@ function renderObras(){
           <button class="btn small ghost" onclick="editingObraId='${o.id}'; renderObras();">Editar</button>
         </div>`
       : '';
+
+    // barra de margem: quanto já foi gasto de mão de obra (pontos) contra o teto de R$80/ponto
+    const orcamento = obraLaborBudget(o);
+    const gasto = obraLaborSpent(o.id);
+    const receitaPontos = (o.pontos_rede||0) * VALOR_PONTO_REDE;
+    const pct = orcamento>0 ? Math.min((gasto/orcamento)*100, 999) : 0;
+    const estourou = gasto > orcamento + 0.005;
+    const margemPadrao = ((VALOR_PONTO_REDE - VALOR_MAX_PONTO) / VALOR_PONTO_REDE) * 100;
+    const margemReal = receitaPontos>0 ? ((receitaPontos - gasto) / receitaPontos) * 100 : margemPadrao;
+    const barColor = estourou ? '#a8492f' : '#17332a';
+    const margemHtml = orcamento>0 ? `
+      <div style="margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:10.5px; color:#6b6656; margin-bottom:3px;">
+          <span>Mão de obra: ${BRL(gasto)} de ${BRL(orcamento)} (teto)</span>
+          <span style="color:${barColor}; font-weight:700;">${estourou ? 'margem real '+margemReal.toFixed(1)+'%' : 'margem padrão '+margemPadrao.toFixed(1)+'%'}</span>
+        </div>
+        <div style="background:#e4ded0; border-radius:6px; height:7px; overflow:hidden;">
+          <div style="width:${Math.min(pct,100)}%; background:${barColor}; height:100%;"></div>
+        </div>
+        ${estourou ? `<div style="font-size:10px; color:#a8492f; margin-top:3px;">⚠ passou do teto de R$${VALOR_MAX_PONTO}/ponto — margem caindo</div>` : ''}
+      </div>` : '';
+
     return `
     <div class="card" style="padding:13px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div style="font-size:14px; font-weight:700; line-height:1.25;">${o.name}</div>
         <span class="${statusStyle(positivo)}">${o.status}${dias!=null && saldo>0.005 ? ` · ${dias}d` : ''}</span>
       </div>
-      <div style="font-size:11.5px; color:#6b6656; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} pontos WiFi</div>
+      <div style="font-size:11.5px; color:#6b6656; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} racks</div>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px;">
         <div><div class="label" style="font-size:10px;">Contrato</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(total)}</div></div>
         <div><div class="label" style="font-size:10px;">Recebido</div><div class="mono" style="font-size:13px; font-weight:700; color:#17332a;">${BRL(recebido)}</div></div>
         <div><div class="label" style="font-size:10px;">Saldo</div><div class="mono" style="font-size:13px; font-weight:700; color:#8a5f22;">${BRL(saldo)}</div></div>
       </div>
+      ${margemHtml}
       ${adminAction}
     </div>`;
   }).join('') || `<div class="empty">Nenhum colégio cadastrado.</div>`;
@@ -359,7 +454,7 @@ function renderObras(){
       const w = state.workers.find(w=>w.id===a.worker_id);
       items.push({data:a.date, desc:`Frequência — ${w?w.name:'?'}`, valor:null, cor:'#6b6656'});
     });
-    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Adiantamento — '+a.worker, valor:-a.amount, cor:'#8a5f22'}));
+    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Adiantamento — '+((state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'), valor:-a.amount, cor:'#8a5f22'}));
   }
   items.sort((a,b)=>b.data.localeCompare(a.data));
   const extratoHtml = items.length ? items.map(it=>`
@@ -434,12 +529,24 @@ async function marcarConcluida(obraId){
 }
 
 /* ===== EQUIPE ===== */
+const STATUS_LABELS = { 'em atuação':{label:'Em atuação', cls:'badge ok'}, 'pausa':{label:'Pausa', cls:'badge pend'}, 'removido':{label:'Removido da equipe', cls:'badge'} };
+function rateLabel(w){
+  if(w.rate==null) return 'sem valor cadastrado';
+  if(w.rate_type==='dia') return `${BRL(w.rate)}/dia`;
+  if(w.rate_type==='mes') return `${BRL(w.rate)}/mês`;
+  if(w.rate_type==='ponto') return `${BRL(w.rate)}/ponto`;
+  return BRL(w.rate);
+}
+
 function renderEquipe(){
   const cardsHtml = state.workers.map(w=>{
     const pend = state.attendance.filter(a=>!a.paid && a.worker_id===w.id);
     const valorPendente = pend.reduce((s,a)=>s+attendanceValue(a),0);
     const adiant = advanceBalance(w.id);
     const net = valorPendente - adiant;
+    const totalPago = state.attendance.filter(a=>a.worker_id===w.id).reduce((s,a)=>s+Number(a.paid_amount||0),0);
+    const acertado = net <= 0.005;
+    const statusInfo = STATUS_LABELS[w.status] || STATUS_LABELS['em atuação'];
 
     if(isAdmin && editingWorkerId===w.id){
       return `
@@ -448,7 +555,16 @@ function renderEquipe(){
         <form class="inline" onsubmit="return salvarWorkerSubmit(event,'${w.id}')" style="border-top:none; margin-top:0; padding-top:0;">
           <input name="name" value="${w.name}" placeholder="Nome" required>
           <input name="rate" type="number" step="0.01" value="${w.rate!=null?w.rate:''}" placeholder="Valor" required>
-          <select name="rate_type"><option value="dia" ${w.rate_type==='dia'?'selected':''}>Por dia</option><option value="mes" ${w.rate_type==='mes'?'selected':''}>Por mês</option></select>
+          <select name="rate_type">
+            <option value="dia" ${w.rate_type==='dia'?'selected':''}>Por dia</option>
+            <option value="mes" ${w.rate_type==='mes'?'selected':''}>Por mês</option>
+            <option value="ponto" ${w.rate_type==='ponto'?'selected':''}>Por ponto instalado</option>
+          </select>
+          <select name="status">
+            <option value="em atuação" ${w.status==='em atuação'?'selected':''}>Em atuação</option>
+            <option value="pausa" ${w.status==='pausa'?'selected':''}>Pausa</option>
+            <option value="removido" ${w.status==='removido'?'selected':''}>Removido da equipe</option>
+          </select>
           <button type="submit" class="btn small">Salvar</button>
           <button type="button" class="btn small ghost" onclick="editingWorkerId=null; renderEquipe();">Cancelar</button>
         </form>
@@ -463,13 +579,18 @@ function renderEquipe(){
     const editAction = isAdmin ? `<button class="btn small ghost" style="margin-top:8px;" onclick="editingWorkerId='${w.id}'; renderEquipe();">Editar</button>` : '';
     return `
     <div class="card" style="padding:13px;">
-      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div style="font-size:14px; font-weight:700;">${w.name}</div>
-        <div style="font-size:11px; color:#6b6656;">${w.rate!=null?`diária ${BRL(w.rate)}`:'sem valor cadastrado'}</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          ${acertado ? `<span class="badge ok">Acertado · pago 100%</span>` : ''}
+          <span class="${statusInfo.cls}">${statusInfo.label}</span>
+        </div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px;">
-        <div><div class="label" style="font-size:10px;">Dias pendentes</div><div class="mono" style="font-size:13px; font-weight:700;">${pend.length} (${BRL(valorPendente)})</div></div>
+      <div style="font-size:11px; color:#6b6656; margin-top:2px;">${rateLabel(w)}</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:10px;">
+        <div><div class="label" style="font-size:10px;">Pendente</div><div class="mono" style="font-size:13px; font-weight:700;">${pend.length} (${BRL(valorPendente)})</div></div>
         <div><div class="label" style="font-size:10px;">Adiantado</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(adiant)}</div></div>
+        <div><div class="label" style="font-size:10px;">Já pago</div><div class="mono" style="font-size:13px; font-weight:700; color:#17332a;">${BRL(totalPago)}</div></div>
         <div><div class="label" style="font-size:10px;">Saldo líquido</div><div class="mono" style="font-size:13px; font-weight:700; color:${net>=0?'#8a5f22':'#17332a'};">${BRL(net)}</div></div>
       </div>
       ${editAction}
@@ -477,14 +598,17 @@ function renderEquipe(){
     </div>`;
   }).join('') || `<div class="empty">Nenhum funcionário cadastrado.</div>`;
 
-  const adiantHtml = state.advances.length ? state.advances.map(a=>`
+  const adiantHtml = state.advances.length ? state.advances.map(a=>{
+    const w = state.workers.find(w=>w.id===a.worker_id);
+    return `
     <div class="row">
       <div style="display:flex; flex-direction:column; gap:2px;">
-        <span style="font-size:13px; font-weight:600;">${a.worker}</span>
+        <span style="font-size:13px; font-weight:600;">${w?w.name:'?'}</span>
         <span style="font-size:11px; color:#6b6656;">${brDate(a.date)}</span>
       </div>
       <span class="mono" style="font-size:13.5px; font-weight:700;">${BRL(a.amount)}</span>
-    </div>`).join('') : `<div class="empty">Nenhum adiantamento registrado.</div>`;
+    </div>`;
+  }).join('') : `<div class="empty">Nenhum adiantamento registrado.</div>`;
 
   const freqHtml = state.attendance.length ? state.attendance.map(a=>{
     const w = state.workers.find(w=>w.id===a.worker_id);
@@ -505,7 +629,7 @@ function renderEquipe(){
       <form class="inline" id="formWorker">
         <input name="name" placeholder="Nome" required>
         <input name="rate" type="number" step="0.01" placeholder="Valor" required>
-        <select name="rate_type"><option value="dia">Por dia</option><option value="mes">Por mês</option></select>
+        <select name="rate_type"><option value="dia">Por dia</option><option value="mes">Por mês</option><option value="ponto">Por ponto instalado</option></select>
         <button type="submit" class="btn">Adicionar</button>
       </form>
     </div>
@@ -515,7 +639,7 @@ function renderEquipe(){
         <select name="worker_id">${state.workers.map(w=>`<option value="${w.id}">${w.name}</option>`).join('')}</select>
         <select name="obra_id">${state.obras.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select>
         <input name="date" type="date" required>
-        <input name="count" type="number" min="1" value="1" placeholder="Qtd">
+        <input name="count" type="number" min="1" value="1" placeholder="Qtd (pessoas/dia ou pontos)">
         <button type="submit" class="btn">Registrar</button>
       </form>
     </div>
@@ -575,7 +699,7 @@ function renderEquipe(){
       const workerId = sel.options[sel.selectedIndex].dataset.id;
       const workerName = sel.value;
       const amount = parseFloat(f.get('amount'));
-      const r1 = await sb.from('advances').insert({ worker_id:workerId, worker:workerName, obra_id:f.get('obra_id'), date:f.get('date'), amount, paid_by:f.get('paid_by'), balance:amount });
+      const r1 = await sb.from('advances').insert({ worker_id:workerId, obra_id:f.get('obra_id'), date:f.get('date'), amount, paid_by:f.get('paid_by'), balance:amount });
       if(r1.error){ alert('Erro ao registrar adiantamento: '+r1.error.message); return; }
       // adiantamento tirado do próprio bolso também vira reembolso pendente
       const r2 = await sb.from('expenses').insert({ obra_id:f.get('obra_id'), date:f.get('date'), time:'00:00', category:'Adiantamento equipe', description:`Adiantamento - ${workerName}`, amount, paid_by:f.get('paid_by'), reimbursed:false });
@@ -588,7 +712,7 @@ function renderEquipe(){
 async function salvarWorkerSubmit(ev, workerId){
   ev.preventDefault();
   const f = new FormData(ev.target);
-  const updates = { name:f.get('name'), rate:parseFloat(f.get('rate')), rate_type:f.get('rate_type') };
+  const updates = { name:f.get('name'), rate:parseFloat(f.get('rate')), rate_type:f.get('rate_type'), status:f.get('status') };
   const r = await sb.from('workers').update(updates).eq('id', workerId);
   if(r.error){ alert('Erro ao salvar: '+r.error.message); return false; }
   editingWorkerId = null;
@@ -614,7 +738,7 @@ async function pagarFolha(workerId, valor){
 
   for(const a of pendentes){
     if(restante <= 0.005) break;
-    const valorDia = worker.rate_type==='dia' ? worker.rate*(a.count||1) : worker.rate;
+    const valorDia = a.fixed_amount != null ? Number(a.fixed_amount) : (worker.rate_type==='dia' ? worker.rate*(a.count||1) : worker.rate);
     if(!valorDia || valorDia<=0) continue;
     const jaPago = Number(a.paid_amount||0);
     const residual = valorDia - jaPago;
@@ -630,14 +754,14 @@ async function pagarFolha(workerId, valor){
   }
 
   if(restante > 0.005){
-    await sb.from('advances').insert({ worker_id:workerId, worker:worker.name, date:new Date().toISOString().slice(0,10), amount:restante, paid_by:'Admin', balance:restante });
+    await sb.from('advances').insert({ worker_id:workerId, date:new Date().toISOString().slice(0,10), amount:restante, paid_by:'Admin', balance:restante });
   }
   await loadAll();
 }
 
 /* ===== GASTOS ===== */
 function renderGastos(){
-  const categorias = ['Material','Combustível','Alimentação','Mão de obra','Adiantamento equipe','Transporte','Outros'];
+  const categorias = ['Material','Combustível','Alimentação','Mão de obra','Adiantamento equipe','Saque de lucro','Transporte','Outros'];
   const pessoas = ['Wesley','Wilter', ...state.workers.map(w=>w.name)];
 
   const html = state.expenses.length ? state.expenses.map(g=>{
