@@ -572,15 +572,44 @@ function rateLabel(w){
   return BRL(w.rate);
 }
 
+let expandedWorkerId = null;
+
+function unitLabel(w){
+  if(w.rate_type==='ponto') return 'pontos';
+  if(w.rate_type==='mes') return 'meses';
+  return 'dias';
+}
+
 function renderEquipe(){
   const cardsHtml = state.workers.map(w=>{
-    const pend = state.attendance.filter(a=>!a.paid && a.worker_id===w.id);
+    const todos = state.attendance.filter(a=>a.worker_id===w.id);
+    const pend = todos.filter(a=>!a.paid);
     const valorPendente = pend.reduce((s,a)=>s+attendanceValue(a),0);
     const adiant = advanceBalance(w.id);
     const net = valorPendente - adiant;
-    const totalPago = state.attendance.filter(a=>a.worker_id===w.id).reduce((s,a)=>s+Number(a.paid_amount||0),0);
+    const totalPago = todos.reduce((s,a)=>s+Number(a.paid_amount||0),0);
     const acertado = net <= 0.005;
     const statusInfo = STATUS_LABELS[w.status] || STATUS_LABELS['em atuação'];
+
+    // quanto ele já executou de verdade (quantidade de pontos/dias), não só valor em dinheiro
+    const totalExecutado = todos.reduce((s,a)=>s+(a.count||1), 0);
+    const unidade = unitLabel(w);
+    // se ele só trabalha num colégio (comum pra quem é pago por ponto), mostra o percentual daquele contrato
+    const obrasDoWorker = [...new Set(todos.map(a=>a.obra_id).filter(Boolean))];
+    let progressoHtml = '';
+    if(w.rate_type==='ponto' && obrasDoWorker.length===1){
+      const o = state.obras.find(x=>x.id===obrasDoWorker[0]);
+      if(o && o.pontos_rede>0){
+        const pct = Math.min((totalExecutado/o.pontos_rede)*100, 100);
+        progressoHtml = `
+          <div style="margin-top:8px;">
+            <div style="font-size:10.5px; color:#748ea0; margin-bottom:3px;">Executado em ${o.name}: ${totalExecutado} de ${o.pontos_rede} pontos (${pct.toFixed(0)}%)</div>
+            <div style="background:#22323f; border-radius:2px; height:6px; overflow:hidden;">
+              <div style="width:${pct}%; background:#4fd1e0; height:100%;"></div>
+            </div>
+          </div>`;
+      }
+    }
 
     if(isAdmin && editingWorkerId===w.id){
       return `
@@ -611,22 +640,49 @@ function renderEquipe(){
         <button type="submit" class="btn small">Pagar</button>
       </form>` : '';
     const editAction = isAdmin ? `<button class="btn small ghost" style="margin-top:8px;" onclick="editingWorkerId='${w.id}'; renderEquipe();">Editar</button>` : '';
+
+    const isOpen = expandedWorkerId===w.id;
+    const historico = [...todos].sort((a,b)=>b.date.localeCompare(a.date));
+    const historicoHtml = isOpen ? `
+      <div style="margin-top:10px; border-top:1px dashed #22323f; padding-top:8px;">
+        ${historico.length ? historico.map(a=>{
+          const o = state.obras.find(o=>o.id===a.obra_id);
+          const valorLinha = a.fixed_amount!=null ? Number(a.fixed_amount) : (w.rate!=null ? w.rate*(a.count||1) : 0);
+          const pago = Number(a.paid_amount||0);
+          let statusTxt = 'pendente', statusCls = 'badge pend';
+          if(a.paid){ statusTxt='pago'; statusCls='badge ok'; }
+          else if(pago>0){ statusTxt='parcial'; statusCls='badge pend'; }
+          return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #1a2530;">
+            <div style="display:flex; flex-direction:column; gap:1px;">
+              <span style="font-size:12px; font-weight:600;">${a.count} ${unitLabel(w)} · ${o?o.name:'Geral'}</span>
+              <span style="font-size:10px; color:#748ea0;">${brDate(a.date)}${a.note?' · '+a.note:''}</span>
+            </div>
+            <div style="text-align:right;">
+              <span class="${statusCls}" style="font-size:9px;">${statusTxt}</span>
+              <div class="mono" style="font-size:12px; font-weight:700; margin-top:2px;">${BRL(valorLinha)}</div>
+            </div>
+          </div>`;
+        }).join('') : `<div class="empty">Nenhuma execução registrada ainda.</div>`}
+      </div>` : '';
+
     return `
     <div class="card" style="padding:13px;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-        <div style="font-size:14px; font-weight:700;">${w.name}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; cursor:pointer;" onclick="expandedWorkerId=expandedWorkerId==='${w.id}'?null:'${w.id}'; renderEquipe();">
+        <div style="font-size:14px; font-weight:700;">${w.name} <span style="color:#748ea0; font-size:11px;">${isOpen?'▲':'▼'}</span></div>
         <div style="display:flex; gap:6px; align-items:center;">
           ${acertado ? `<span class="badge ok">Acertado · pago 100%</span>` : ''}
           <span class="${statusInfo.cls}">${statusInfo.label}</span>
         </div>
       </div>
-      <div style="font-size:11px; color:#748ea0; margin-top:2px;">${rateLabel(w)}</div>
+      <div style="font-size:11px; color:#748ea0; margin-top:2px;">${rateLabel(w)} · executado: ${totalExecutado} ${unidade}</div>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:10px;">
         <div><div class="label" style="font-size:10px;">Pendente</div><div class="mono" style="font-size:13px; font-weight:700;">${pend.length} (${BRL(valorPendente)})</div></div>
         <div><div class="label" style="font-size:10px;">Adiantado</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(adiant)}</div></div>
         <div><div class="label" style="font-size:10px;">Já pago</div><div class="mono" style="font-size:13px; font-weight:700; color:#4fd1e0;">${BRL(totalPago)}</div></div>
         <div><div class="label" style="font-size:10px;">Saldo líquido</div><div class="mono" style="font-size:13px; font-weight:700; color:${net>=0?'#e3a94a':'#4fd1e0'};">${BRL(net)}</div></div>
       </div>
+      ${progressoHtml}
+      ${historicoHtml}
       ${editAction}
       ${payAction}
     </div>`;
