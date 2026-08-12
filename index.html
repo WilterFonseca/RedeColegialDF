@@ -188,7 +188,7 @@ function attendanceValue(a){
   }
   const w = state.workers.find(w=>w.id===a.worker_id);
   if(!w || w.rate==null) return 0;
-  const valorDia = w.rate_type==='dia' ? w.rate*(a.count||1) : w.rate;
+  const valorDia = (w.rate_type==='dia' || w.rate_type==='ponto') ? w.rate*(a.count||1) : w.rate;
   if(a.paid) return valorDia;
   return Math.max(valorDia - Number(a.paid_amount||0), 0);
 }
@@ -772,7 +772,7 @@ async function pagarFolha(workerId, valor){
 
   for(const a of pendentes){
     if(restante <= 0.005) break;
-    const valorDia = a.fixed_amount != null ? Number(a.fixed_amount) : (worker.rate_type==='dia' ? worker.rate*(a.count||1) : worker.rate);
+    const valorDia = a.fixed_amount != null ? Number(a.fixed_amount) : ((worker.rate_type==='dia' || worker.rate_type==='ponto') ? worker.rate*(a.count||1) : worker.rate);
     if(!valorDia || valorDia<=0) continue;
     const jaPago = Number(a.paid_amount||0);
     const residual = valorDia - jaPago;
