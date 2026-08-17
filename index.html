@@ -323,6 +323,27 @@ function renderResumo(){
       </div>
     </div>` : '';
 
+  // próximas entregas (colégios em andamento com data prevista)
+  const proximasEntregas = emAndamento
+    .filter(o=>o.data_entrega_prevista)
+    .sort((a,b)=>a.data_entrega_prevista.localeCompare(b.data_entrega_prevista));
+  const entregasHtml = proximasEntregas.length ? `
+    <div class="card" style="overflow:hidden;">
+      ${proximasEntregas.map(o=>{
+        const rest = daysUntil(o.data_entrega_prevista);
+        const atrasado = rest < 0;
+        const cor = atrasado ? '#e5674f' : (rest<=2 ? '#e3a94a' : '#4fd1e0');
+        const txt = atrasado ? `atrasado ${Math.abs(rest)}d` : (rest===0 ? 'hoje' : `${rest}d`);
+        return `<div class="row">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:13px; font-weight:600;">${o.name}</span>
+            <span style="font-size:10.5px; color:#748ea0;">${brDate(o.data_entrega_prevista)}</span>
+          </div>
+          <span class="mono" style="font-size:13px; font-weight:700; color:${cor};">${txt}</span>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
   const byPerson = {};
   state.expenses.filter(e=>!e.reimbursed).forEach(e=>{ byPerson[e.paid_by]=(byPerson[e.paid_by]||0)+Number(e.amount); });
   const reembolsoHtml = Object.entries(byPerson).length
@@ -378,6 +399,7 @@ function renderResumo(){
   document.getElementById('tab-resumo').innerHTML = `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">${cardsHtml}</div>
     ${alertaHtml}
+    ${proximasEntregas.length ? `<div><div style="font-size:14px; font-weight:700; margin-bottom:8px;">Próximas entregas</div>${entregasHtml}</div>` : ''}
     <div>
       <div style="font-size:14px; font-weight:700; margin-bottom:8px;">A reembolsar por pessoa</div>
       <div class="card" style="overflow:hidden;">${reembolsoHtml}</div>
@@ -411,6 +433,13 @@ function obraLaborSpent(obraId){
   return doAtendimento + adiantamentoNaoConsumido;
 }
 
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const alvo = new Date(dateStr+'T00:00:00');
+  return Math.round((alvo - hoje) / (1000*60*60*24));
+}
+
 function renderObras(){
   const cardsHtml = state.obras.map(o=>{
     const total=obraTotal(o), recebido=obraRecebido(o.id), saldo=total-recebido;
@@ -426,6 +455,9 @@ function renderObras(){
           <input name="pontos_rede" type="number" min="0" value="${o.pontos_rede}" placeholder="Pontos de rede" required>
           <input name="pontos_wifi" type="number" min="0" value="${o.pontos_wifi}" placeholder="Racks" required>
           <select name="status"><option value="em andamento" ${!positivo?'selected':''}>Em andamento</option><option value="concluída" ${positivo?'selected':''}>Concluída</option></select>
+          <label style="font-size:10.5px; color:#748ea0; width:100%;">Data prevista de entrega
+            <input name="data_entrega_prevista" type="date" value="${o.data_entrega_prevista||''}">
+          </label>
           <button type="submit" class="btn small">Salvar</button>
           <button type="button" class="btn small ghost" onclick="editingObraId=null; renderObras();">Cancelar</button>
         </form>
@@ -438,6 +470,16 @@ function renderObras(){
           <button class="btn small ghost" onclick="editingObraId='${o.id}'; renderObras();">Editar</button>
         </div>`
       : '';
+
+    // contagem regressiva de entrega
+    let entregaHtml = '';
+    if(!positivo && o.data_entrega_prevista){
+      const rest = daysUntil(o.data_entrega_prevista);
+      const atrasado = rest < 0;
+      const cor = atrasado ? '#e5674f' : (rest<=2 ? '#e3a94a' : '#4fd1e0');
+      const txt = atrasado ? `atrasado ${Math.abs(rest)}d` : (rest===0 ? 'entrega é hoje' : `faltam ${rest}d pra entrega`);
+      entregaHtml = `<div style="margin-top:6px; font-size:11px; color:${cor}; font-weight:600;">📅 ${brDate(o.data_entrega_prevista)} — ${txt}</div>`;
+    }
 
     // barra de margem: quanto já foi gasto de mão de obra (pontos) contra o teto de R$80/ponto
     const orcamento = obraLaborBudget(o);
@@ -467,6 +509,7 @@ function renderObras(){
         <span class="${statusStyle(positivo)}">${o.status}${dias!=null && saldo>0.005 ? ` · ${dias}d` : ''}</span>
       </div>
       <div style="font-size:11.5px; color:#748ea0; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} racks</div>
+      ${entregaHtml}
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px;">
         <div><div class="label" style="font-size:10px;">Contrato</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(total)}</div></div>
         <div><div class="label" style="font-size:10px;">Recebido</div><div class="mono" style="font-size:13px; font-weight:700; color:#4fd1e0;">${BRL(recebido)}</div></div>
@@ -507,6 +550,7 @@ function renderObras(){
         <input name="name" placeholder="Nome do colégio" required>
         <input name="pontos_rede" type="number" min="0" placeholder="Pontos de rede" required>
         <input name="pontos_wifi" type="number" min="0" placeholder="Racks" required>
+        <input name="data_entrega_prevista" type="date" placeholder="Data prevista de entrega">
         <button type="submit" class="btn">Cadastrar</button>
       </form>
     </div>` : '';
@@ -528,7 +572,8 @@ function renderObras(){
     e.preventDefault();
     const f = new FormData(e.target);
     const r = await sb.from('obras').insert({
-      name: f.get('name'), pontos_rede: parseInt(f.get('pontos_rede'),10), pontos_wifi: parseInt(f.get('pontos_wifi'),10), status:'em andamento'
+      name: f.get('name'), pontos_rede: parseInt(f.get('pontos_rede'),10), pontos_wifi: parseInt(f.get('pontos_wifi'),10),
+      status:'em andamento', data_entrega_prevista: f.get('data_entrega_prevista') || null
     });
     if(r.error){ alert('Erro ao cadastrar: '+r.error.message); return; }
     await loadAll();
@@ -543,6 +588,7 @@ async function salvarObraSubmit(ev, obraId){
     pontos_rede: parseInt(f.get('pontos_rede'),10)||0,
     pontos_wifi: parseInt(f.get('pontos_wifi'),10)||0,
     status: f.get('status'),
+    data_entrega_prevista: f.get('data_entrega_prevista') || null,
   };
   if(updates.status==='concluída'){
     const o = state.obras.find(x=>x.id===obraId);
