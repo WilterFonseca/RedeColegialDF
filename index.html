@@ -1,4 +1,5 @@
-l<!DOCTYPE html>
+
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -465,7 +466,7 @@ function renderObras(){
     }
 
     const adminAction = isAdmin
-      ? `<div style="display:flex; gap:6px; margin-top:10px;">
+      ? `<div style="display:flex; gap:6px; margin-top:10px;" onclick="event.stopPropagation();">
           ${!positivo ? `<button class="btn small" onclick="marcarConcluida('${o.id}')">Marcar como concluída</button>` : ''}
           <button class="btn small ghost" onclick="editingObraId='${o.id}'; renderObras();">Editar</button>
         </div>`
@@ -497,9 +498,9 @@ function renderObras(){
       <div style="margin-top:8px; font-size:12px; font-weight:700; color:${margemCor};">${margemTexto}</div>` : '';
 
     return `
-    <div class="card" style="padding:13px;">
+    <div class="card" style="padding:13px; cursor:pointer;" onclick="selectedObraId='${o.id}'; renderObras(); document.getElementById('obraDetailAnchor').scrollIntoView({behavior:'smooth', block:'start'});">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-        <div style="font-size:14px; font-weight:700; line-height:1.25;">${o.name}</div>
+        <div style="font-size:14px; font-weight:700; line-height:1.25;">${o.name} <span style="color:#748ea0; font-size:11px;">▾ ver histórico</span></div>
         <span class="${statusStyle(positivo)}">${o.status}${dias!=null && saldo>0.005 ? ` · ${dias}d` : ''}</span>
       </div>
       <div style="font-size:11.5px; color:#748ea0; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} racks</div>
@@ -571,7 +572,7 @@ function renderObras(){
     <div style="font-size:14px; font-weight:700;">Colégios — contratos</div>
     <div style="display:flex; flex-direction:column; gap:14px;">${cardsHtml}</div>
     ${adminForm}
-    <div style="margin-top:6px;">
+    <div style="margin-top:6px;" id="obraDetailAnchor">
       <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Extrato por colégio</div>
       <select class="sel" id="obraSelect">${options}</select>
       ${reembolsoColegioHtml}
