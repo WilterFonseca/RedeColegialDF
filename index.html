@@ -92,7 +92,7 @@
 const SUPABASE_URL = "https://vqvjluufkhzjhigtnssz.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_juxbppxkxS-ZKSdCSKXETg_mfJs1U_m";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const VALOR_PONTO_REDE = 130, VALOR_PONTO_WIFI = 400;
+const VALOR_PONTO_REDE = 130;
 
 const BRL = v => (Number(v)||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 const brDate = iso => { if(!iso) return '—'; const p = iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}` : iso; };
@@ -167,7 +167,14 @@ function renderTabStrip(){
   });
 }
 
-function obraTotal(o){ return (o.pontos_rede||0)*VALOR_PONTO_REDE + (o.pontos_wifi||0)*VALOR_PONTO_WIFI; }
+function rackValue(racks){
+  if(!racks || racks<=0) return 0;
+  return 270 + (racks-1)*130; // 1º rack = R$270, a partir do 2º cai pro valor de ponto (R$130)
+}
+function obraTotal(o){
+  if(o.contrato_valor_fixo != null) return Number(o.contrato_valor_fixo);
+  return (o.pontos_rede||0)*VALOR_PONTO_REDE + rackValue(o.pontos_wifi||0);
+}
 function obraRecebido(id){ return state.payments.filter(p=>p.obra_id===id).reduce((s,p)=>s+Number(p.amount),0); }
 function attendanceValue(a){
   // valor combinado (fixo) tem prioridade sobre o cálculo por diária
