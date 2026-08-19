@@ -481,26 +481,20 @@ function renderObras(){
       entregaHtml = `<div style="margin-top:6px; font-size:11px; color:${cor}; font-weight:600;">📅 ${brDate(o.data_entrega_prevista)} — ${txt}</div>`;
     }
 
-    // barra de margem: quanto já foi gasto de mão de obra (pontos) contra o teto de R$80/ponto
+    // margem de lucro: verde (dentro do padrão) / laranja (passou do teto mas ainda lucra) / vermelho (prejuízo)
     const orcamento = obraLaborBudget(o);
     const gasto = obraLaborSpent(o.id);
     const receitaPontos = (o.pontos_rede||0) * VALOR_PONTO_REDE;
-    const pct = orcamento>0 ? Math.min((gasto/orcamento)*100, 999) : 0;
     const estourou = gasto > orcamento + 0.005;
     const margemPadrao = ((VALOR_PONTO_REDE - VALOR_MAX_PONTO) / VALOR_PONTO_REDE) * 100;
     const margemReal = receitaPontos>0 ? ((receitaPontos - gasto) / receitaPontos) * 100 : margemPadrao;
-    const barColor = estourou ? '#e5674f' : '#4fd1e0';
+    const prejuizo = margemReal < 0;
+    let margemCor, margemTexto;
+    if(prejuizo){ margemCor = '#e5674f'; margemTexto = `Prejuízo de ${Math.abs(margemReal).toFixed(1)}%`; }
+    else if(estourou){ margemCor = '#e3a94a'; margemTexto = `Margem de lucro: ${margemReal.toFixed(1)}%`; }
+    else { margemCor = '#4fd1e0'; margemTexto = `Margem de lucro: ${margemPadrao.toFixed(1)}%`; }
     const margemHtml = orcamento>0 ? `
-      <div style="margin-top:10px;">
-        <div style="display:flex; justify-content:space-between; font-size:10.5px; color:#748ea0; margin-bottom:3px;">
-          <span>Mão de obra: ${BRL(gasto)} de ${BRL(orcamento)} (teto)</span>
-          <span style="color:${barColor}; font-weight:700;">${estourou ? 'margem real '+margemReal.toFixed(1)+'%' : 'margem padrão '+margemPadrao.toFixed(1)+'%'}</span>
-        </div>
-        <div style="background:#22323f; border-radius:6px; height:7px; overflow:hidden;">
-          <div style="width:${Math.min(pct,100)}%; background:${barColor}; height:100%;"></div>
-        </div>
-        ${estourou ? `<div style="font-size:10px; color:#e5674f; margin-top:3px;">⚠ passou do teto de R$${VALOR_MAX_PONTO}/ponto — margem caindo</div>` : ''}
-      </div>` : '';
+      <div style="margin-top:8px; font-size:12px; font-weight:700; color:${margemCor};">${margemTexto}</div>` : '';
 
     return `
     <div class="card" style="padding:13px;">
@@ -543,6 +537,24 @@ function renderObras(){
       <span class="mono" style="font-size:13.5px; font-weight:700; color:${it.cor};">${it.valor===null?'—':(it.valor>0?'+ ':'− ')+BRL(Math.abs(it.valor))}</span>
     </div>`).join('') : `<div class="empty">Nenhum lançamento para este colégio.</div>`;
 
+  // reembolso pendente SÓ desse colégio, por pessoa — pra não pagar reembolso de outro colégio
+  // com o dinheiro que acabou de entrar
+  let reembolsoColegioHtml = '';
+  if(o){
+    const pendentesObra = state.expenses.filter(e=>e.obra_id===o.id && !e.reimbursed);
+    const porPessoa = {};
+    pendentesObra.forEach(e=>{ porPessoa[e.paid_by] = (porPessoa[e.paid_by]||0) + Number(e.amount); });
+    const linhas = Object.entries(porPessoa);
+    reembolsoColegioHtml = `
+      <div style="margin-top:6px;">
+        <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Reembolso pendente — só desse colégio</div>
+        <div class="card" style="overflow:hidden;">
+          ${linhas.length ? linhas.map(([p,v])=>`<div class="row"><span style="font-size:13px; font-weight:600;">${p}</span><span class="mono" style="font-size:13.5px; font-weight:700; color:#e3a94a;">${BRL(v)}</span></div>`).join('') : `<div class="empty">Nada pendente pra esse colégio.</div>`}
+        </div>
+        ${pendentesObra.length ? `<div style="margin-top:6px; font-size:10.5px; color:#748ea0;">${pendentesObra.length} lançamento(s) — inclui retroativos sem data exata</div>` : ''}
+      </div>`;
+  }
+
   const adminForm = isAdmin ? `
     <div class="admin-panel">
       <div class="title">Admin · novo colégio</div>
@@ -562,7 +574,11 @@ function renderObras(){
     <div style="margin-top:6px;">
       <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Extrato por colégio</div>
       <select class="sel" id="obraSelect">${options}</select>
-      <div class="card" style="overflow:hidden; margin-top:8px;">${extratoHtml}</div>
+      ${reembolsoColegioHtml}
+      <div style="margin-top:14px;">
+        <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Extrato completo</div>
+        <div class="card" style="overflow:hidden;">${extratoHtml}</div>
+      </div>
     </div>`;
   const selEl = document.getElementById('obraSelect');
   if(selEl) selEl.addEventListener('change', e=>{ selectedObraId = e.target.value; renderObras(); });
