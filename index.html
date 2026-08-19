@@ -504,9 +504,10 @@ function renderObras(){
       </div>
       <div style="font-size:11.5px; color:#748ea0; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} racks</div>
       ${entregaHtml}
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:10px;">
         <div><div class="label" style="font-size:10px;">Contrato</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(total)}</div></div>
         <div><div class="label" style="font-size:10px;">Recebido</div><div class="mono" style="font-size:13px; font-weight:700; color:#4fd1e0;">${BRL(recebido)}</div></div>
+        <div><div class="label" style="font-size:10px;">Gasto</div><div class="mono" style="font-size:13px; font-weight:700; color:${gasto>orcamento?'#e5674f':'#e3a94a'};">${BRL(gasto)}</div></div>
         <div><div class="label" style="font-size:10px;">Saldo</div><div class="mono" style="font-size:13px; font-weight:700; color:#e3a94a;">${BRL(saldo)}</div></div>
       </div>
       ${margemHtml}
@@ -1070,4 +1071,3 @@ setInterval(loadAll, 20000);
 </script>
 </body>
 </html>
-
