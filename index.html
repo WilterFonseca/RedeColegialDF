@@ -8,69 +8,59 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
-  @keyframes pulse-dot { 0%,100%{ opacity:1; } 50%{ opacity:.2; } }
+  @keyframes pulse-dot { 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
   :root{
-    --bg:#0c141c; --panel:#121d28; --panel2:#0f1922;
-    --line:#22323f; --line-strong:#35505f;
-    --text:#dbe6ec; --muted:#748ea0;
-    --accent:#4fd1e0; --accent-dim:#1d4a52;
-    --amber:#e3a94a; --amber-dim:#3a2c12;
-    --danger:#e5674f; --danger-dim:#3a1c14;
-    --ok-bg:#0f2e30; --ok-text:#4fd1e0;
-    --pend-bg:#33260f; --pend-text:#e3a94a;
+    --bg:#f6f6f8; --panel:#ffffff; --panel2:#f4f4f6;
+    --line:#e6e6ea; --line-strong:#d6d6dc;
+    --text:#1a1a24; --muted:#83838f;
+    --accent:#6a5cff; --accent-dim:#eeecff;
+    --amber:#c47d13; --amber-dim:#fdf1de;
+    --danger:#d5493a; --danger-dim:#fbe9e7;
+    --ok-bg:#e7f7ee; --ok-text:#1a9c5e;
+    --pend-bg:#fdf1de; --pend-text:#c47d13;
   }
   body {
     margin:0; background:var(--bg); -webkit-tap-highlight-color:transparent;
     font-family:'Space Grotesk',sans-serif; color:var(--text);
-    background-image:
-      linear-gradient(rgba(79,209,224,.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(79,209,224,.045) 1px, transparent 1px);
-    background-size: 26px 26px;
   }
   * { box-sizing:border-box; }
   ::selection { background:var(--accent-dim); color:var(--accent); }
   a { color:var(--accent); }
   ::-webkit-scrollbar { height:0; width:0; }
   .mono { font-family:'JetBrains Mono',monospace; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:3px; position:relative; }
-  /* cantos tipo prancheta técnica */
-  .card::before, .card::after {
-    content:''; position:absolute; width:9px; height:9px; border:1.5px solid var(--line-strong); pointer-events:none;
-  }
-  .card::before { top:0; left:0; border-right:none; border-bottom:none; }
-  .card::after { bottom:0; right:0; border-left:none; border-top:none; }
-  .row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(20,20,40,.04); }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-bottom:1px solid var(--line); }
   .row:last-child { border-bottom:none; }
   .label { font-size:10.5px; color:var(--muted); text-transform:uppercase; font-weight:600; letter-spacing:.4px; }
   .muted { color:var(--muted); }
-  .badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:2px; white-space:nowrap; letter-spacing:.2px; text-transform:uppercase; }
-  .badge.ok { background:var(--ok-bg); color:var(--ok-text); border:1px solid var(--accent-dim); }
-  .badge.pend { background:var(--pend-bg); color:var(--pend-text); border:1px solid #4a3a1a; }
+  .badge { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; letter-spacing:.1px; }
+  .badge.ok { background:var(--ok-bg); color:var(--ok-text); }
+  .badge.pend { background:var(--pend-bg); color:var(--pend-text); }
   .tabbtn { flex:1; min-width:78px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 4px 8px; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; color:var(--muted); font-family:'Space Grotesk',sans-serif; }
   .tabbtn.active { border-bottom-color:var(--accent); color:var(--accent); }
-  .empty { padding:16px 14px; font-size:12.5px; color:var(--muted); text-align:center; font-family:'JetBrains Mono',monospace; }
-  select.sel { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:3px; background:var(--panel); font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:600; color:var(--text); }
+  .empty { padding:16px 14px; font-size:12.5px; color:var(--muted); text-align:center; font-family:'Space Grotesk',sans-serif; }
+  select.sel { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel); font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:600; color:var(--text); }
   .tabpage { display:none; flex-direction:column; gap:16px; }
   .tabpage.active { display:flex; }
-  form.inline { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line-strong); }
-  form.inline input, form.inline select { background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:3px; font-family:'Space Grotesk',sans-serif; font-size:12.5px; flex:1; min-width:110px; }
-  form.inline input:focus, form.inline select:focus { outline:1px solid var(--accent); outline-offset:0; border-color:var(--accent); }
-  .btn { background:var(--accent); color:#06141a; border:none; padding:8px 16px; border-radius:3px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer; letter-spacing:.2px; }
-  .btn.ghost { background:transparent; border:1px solid var(--line-strong); color:var(--text); }
-  .btn.small { padding:5px 10px; font-size:11.5px; }
-  .admin-panel { border:1px dashed var(--amber); border-radius:3px; padding:12px; background:var(--amber-dim); }
+  form.inline { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  form.inline input, form.inline select { background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:8px; font-family:'Space Grotesk',sans-serif; font-size:12.5px; flex:1; min-width:110px; }
+  form.inline input:focus, form.inline select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+  .btn { background:var(--accent); color:#fff; border:none; padding:9px 16px; border-radius:9px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12.5px; cursor:pointer; }
+  .btn.ghost { background:var(--panel2); border:1px solid var(--line); color:var(--text); }
+  .btn.small { padding:6px 11px; font-size:11.5px; }
+  .admin-panel { border:1px solid var(--amber); border-radius:14px; padding:12px; background:var(--amber-dim); }
   .admin-panel .title { font-size:11px; font-weight:700; color:var(--amber); text-transform:uppercase; margin-bottom:8px; letter-spacing:.4px; }
 </style>
 </head>
 <body>
 
-<div style="min-height:100vh; background:#0c141c; display:flex; justify-content:center;">
-<div style="width:100%; max-width:560px; min-height:100vh; background:#0c141c; display:flex; flex-direction:column;">
+<div style="min-height:100vh; background:#f6f6f8; display:flex; justify-content:center;">
+<div style="width:100%; max-width:560px; min-height:100vh; background:#f6f6f8; display:flex; flex-direction:column;">
 
-  <div style="background:#0a141c; color:#dbe6ec; padding:18px 18px 14px; display:flex; flex-direction:column; gap:4px; border-bottom:2px solid #4fd1e0;">
+  <div style="background:#ffffff; color:#1a1a24; padding:18px 18px 14px; display:flex; flex-direction:column; gap:4px; border-bottom:1px solid #e6e6ea;">
     <div style="font-size:19px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
       <span>Wilter &amp; Wesley</span>
-      <button id="adminBtn" style="background:transparent; border:1px solid rgba(219,230,236,.3); color:#dbe6ec; font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600; padding:5px 10px; border-radius:2px; cursor:pointer; display:flex; align-items:center; gap:5px;">
+      <button id="adminBtn" style="background:#f4f4f6; border:1px solid #e6e6ea; color:#1a1a24; font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600; padding:6px 11px; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:5px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         <span id="adminBtnLabel">Admin</span>
       </button>
@@ -78,14 +68,14 @@
     <div style="display:flex; align-items:center; justify-content:space-between;">
       <div style="font-size:12.5px; opacity:.75; font-weight:500;">Redes DF · financeiro do serviço</div>
       <div style="display:flex; align-items:center; gap:6px; font-size:11px; opacity:.85; cursor:pointer;" class="mono" id="refreshTrigger" title="Atualizar agora">
-        <span style="width:7px; height:7px; border-radius:50%; background:#4fd1e0; display:inline-block; animation:pulse-dot 1.6s ease-in-out infinite;"></span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#6a5cff; display:inline-block; animation:pulse-dot 1.6s ease-in-out infinite;"></span>
         <span id="lastUpdateLabel">atualizando...</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
       </div>
     </div>
   </div>
 
-  <div style="display:flex; background:#121d28; border-bottom:1px solid #22323f; overflow-x:auto;" id="tabStrip"></div>
+  <div style="display:flex; background:#ffffff; border-bottom:1px solid #e6e6ea; overflow-x:auto;" id="tabStrip"></div>
 
   <div style="flex:1; padding:16px 16px 40px;">
     <div class="tabpage active" id="tab-resumo"></div>
@@ -228,7 +218,7 @@ function showErrorBanner(msg){
   if(!b){
     b = document.createElement('div');
     b.id = 'fatalErrorBanner';
-    b.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:999; background:#3a1414; color:#ffb4a8; font-family:monospace; font-size:12px; padding:12px 14px; white-space:pre-wrap; word-break:break-word;';
+    b.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:999; background:#fbe9e7; color:#a3271e; font-family:monospace; font-size:12px; padding:12px 14px; white-space:pre-wrap; word-break:break-word; border-bottom:1px solid #d5493a;';
     document.body.prepend(b);
   }
   b.textContent = msg;
@@ -291,33 +281,33 @@ function renderResumo(){
   const pendentesConcluidos = concluidas.filter(o=>(obraTotal(o)-obraRecebido(o.id))>0.005);
 
   const cards = [
-    ['A receber (concluídos)', BRL(aReceberConcluidas), '#4fd1e0'],
-    ['Previsão de faturamento (em andamento)', BRL(previsaoFaturamento), '#3a8f9c'],
-    ['Total recebido', BRL(totalRecebido), '#4fd1e0'],
-    ['Total gasto', BRL(totalGasto), '#dbe6ec'],
-    ['Pendente de reembolso', BRL(pendenteReembolso), '#e3a94a'],
-    ['Folha equipe pendente', BRL(folhaPendente), '#e3a94a'],
+    ['A receber (concluídos)', BRL(aReceberConcluidas), '#6a5cff'],
+    ['Previsão de faturamento (em andamento)', BRL(previsaoFaturamento), '#8b7cff'],
+    ['Total recebido', BRL(totalRecebido), '#6a5cff'],
+    ['Total gasto', BRL(totalGasto), '#1a1a24'],
+    ['Pendente de reembolso', BRL(pendenteReembolso), '#c47d13'],
+    ['Folha equipe pendente', BRL(folhaPendente), '#c47d13'],
   ];
   const cardsHtml = cards.map(([label,val,color])=>`
     <div class="card" style="padding:12px;">
       <div class="label">${label}</div>
       <div class="mono" style="font-size:20px; font-weight:700; color:${color}; margin-top:6px;">${val}</div>
     </div>`).join('') + `
-    <div style="background:#0f1922; border:1px solid #4fd1e0; border-radius:3px; padding:12px;">
-      <div style="font-size:11px; font-weight:600; color:#748ea0; text-transform:uppercase;">Saldo em caixa</div>
-      <div class="mono" style="font-size:20px; font-weight:700; color:#4fd1e0; margin-top:6px;">${BRL(saldoCaixa)}</div>
+    <div style="background:#6a5cff; border:1px solid #6a5cff; border-radius:14px; padding:12px; box-shadow:0 1px 2px rgba(20,20,40,.04);">
+      <div style="font-size:11px; font-weight:600; color:#ded9ff; text-transform:uppercase;">Saldo em caixa</div>
+      <div class="mono" style="font-size:20px; font-weight:700; color:#ffffff; margin-top:6px;">${BRL(saldoCaixa)}</div>
     </div>`;
 
   const alertaHtml = pendentesConcluidos.length ? `
-    <div class="card" style="padding:13px; border-color:#e3a94a;">
-      <div style="font-size:13px; font-weight:700; color:#e3a94a;">⏳ ${pendentesConcluidos.length} colégio(s) concluído(s) esperando recebimento</div>
+    <div class="card" style="padding:13px; border-color:#c47d13;">
+      <div style="font-size:13px; font-weight:700; color:#c47d13;">⏳ ${pendentesConcluidos.length} colégio(s) concluído(s) esperando recebimento</div>
       <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
         ${pendentesConcluidos.map(o=>{
           const dias = daysSince(o.concluded_at);
           const saldo = obraTotal(o)-obraRecebido(o.id);
-          return `<div class="row" style="padding:6px 0; border-bottom:1px solid #22323f;">
+          return `<div class="row" style="padding:6px 0; border-bottom:1px solid #e6e6ea;">
             <span style="font-size:12.5px; font-weight:600;">${o.name}</span>
-            <span style="font-size:11.5px; color:#e3a94a;">${dias!=null?dias+' dias':'?'} · ${BRL(saldo)}</span>
+            <span style="font-size:11.5px; color:#c47d13;">${dias!=null?dias+' dias':'?'} · ${BRL(saldo)}</span>
           </div>`;
         }).join('')}
       </div>
@@ -332,12 +322,12 @@ function renderResumo(){
       ${proximasEntregas.map(o=>{
         const rest = daysUntil(o.data_entrega_prevista);
         const atrasado = rest < 0;
-        const cor = atrasado ? '#e5674f' : (rest<=2 ? '#e3a94a' : '#4fd1e0');
+        const cor = atrasado ? '#d5493a' : (rest<=2 ? '#c47d13' : '#6a5cff');
         const txt = atrasado ? `atrasado ${Math.abs(rest)}d` : (rest===0 ? 'hoje' : `${rest}d`);
         return `<div class="row">
           <div style="display:flex; flex-direction:column; gap:2px;">
             <span style="font-size:13px; font-weight:600;">${o.name}</span>
-            <span style="font-size:10.5px; color:#748ea0;">${brDate(o.data_entrega_prevista)}</span>
+            <span style="font-size:10.5px; color:#83838f;">${brDate(o.data_entrega_prevista)}</span>
           </div>
           <span class="mono" style="font-size:13px; font-weight:700; color:${cor};">${txt}</span>
         </div>`;
@@ -354,10 +344,10 @@ function renderResumo(){
           <div style="padding:0 14px 10px;">
             ${transacoes.map(t=>{
               const o = state.obras.find(o=>o.id===t.obra_id);
-              return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid #22323f;">
+              return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid #e6e6ea;">
                 <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                   <span style="font-size:12.5px; font-weight:600;">${t.description}</span>
-                  <span style="font-size:10.5px; color:#748ea0;">${brDate(t.date)} · ${t.category} · ${o?o.name:'Geral'}</span>
+                  <span style="font-size:10.5px; color:#83838f;">${brDate(t.date)} · ${t.category} · ${o?o.name:'Geral'}</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <span class="${statusStyle(t.reimbursed)}" style="font-size:9.5px;">${gastoStatusLabel(t)}</span>
@@ -368,8 +358,8 @@ function renderResumo(){
           </div>` : '';
         return `<div>
           <div class="row" style="cursor:pointer;" onclick="expandedPessoa=expandedPessoa==='${p}'?null:'${p}'; renderResumo();">
-            <span style="font-size:13.5px; font-weight:600;">${p} <span style="color:#748ea0; font-size:11px;">${isOpen?'▲':'▼'} (${transacoes.length})</span></span>
-            <span class="mono" style="font-size:14px; font-weight:600; color:#e3a94a;">${BRL(v)}</span>
+            <span style="font-size:13.5px; font-weight:600;">${p} <span style="color:#83838f; font-size:11px;">${isOpen?'▲':'▼'} (${transacoes.length})</span></span>
+            <span class="mono" style="font-size:14px; font-weight:600; color:#c47d13;">${BRL(v)}</span>
           </div>
           ${detalheHtml}
         </div>`;
@@ -391,9 +381,9 @@ function renderResumo(){
     <div class="row" style="align-items:center; gap:10px;">
       <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
         <span style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${f.desc||''}</span>
-        <span style="font-size:11px; color:#748ea0;">${brDate(f.data)} · ${f.tipo}</span>
+        <span style="font-size:11px; color:#83838f;">${brDate(f.data)} · ${f.tipo}</span>
       </div>
-      <span class="mono" style="font-size:13.5px; font-weight:700; white-space:nowrap; color:${f.valor>0?'#4fd1e0':'#e3a94a'};">${f.valor>0?'+ ':'− '}${BRL(Math.abs(f.valor))}</span>
+      <span class="mono" style="font-size:13.5px; font-weight:700; white-space:nowrap; color:${f.valor>0?'#6a5cff':'#c47d13'};">${f.valor>0?'+ ':'− '}${BRL(Math.abs(f.valor))}</span>
     </div>`).join('') : `<div class="empty">Sem lançamentos nesse período.</div>`;
 
   document.getElementById('tab-resumo').innerHTML = `
@@ -455,7 +445,7 @@ function renderObras(){
           <input name="pontos_rede" type="number" min="0" value="${o.pontos_rede}" placeholder="Pontos de rede" required>
           <input name="pontos_wifi" type="number" min="0" value="${o.pontos_wifi}" placeholder="Racks" required>
           <select name="status"><option value="em andamento" ${!positivo?'selected':''}>Em andamento</option><option value="concluída" ${positivo?'selected':''}>Concluída</option></select>
-          <label style="font-size:10.5px; color:#748ea0; width:100%;">Data prevista de entrega
+          <label style="font-size:10.5px; color:#83838f; width:100%;">Data prevista de entrega
             <input name="data_entrega_prevista" type="date" value="${o.data_entrega_prevista||''}">
           </label>
           <button type="submit" class="btn small">Salvar</button>
@@ -476,7 +466,7 @@ function renderObras(){
     if(!positivo && o.data_entrega_prevista){
       const rest = daysUntil(o.data_entrega_prevista);
       const atrasado = rest < 0;
-      const cor = atrasado ? '#e5674f' : (rest<=2 ? '#e3a94a' : '#4fd1e0');
+      const cor = atrasado ? '#d5493a' : (rest<=2 ? '#c47d13' : '#6a5cff');
       const txt = atrasado ? `atrasado ${Math.abs(rest)}d` : (rest===0 ? 'entrega é hoje' : `faltam ${rest}d pra entrega`);
       entregaHtml = `<div style="margin-top:6px; font-size:11px; color:${cor}; font-weight:600;">📅 ${brDate(o.data_entrega_prevista)} — ${txt}</div>`;
     }
@@ -490,25 +480,25 @@ function renderObras(){
     const margemReal = receitaPontos>0 ? ((receitaPontos - gasto) / receitaPontos) * 100 : margemPadrao;
     const prejuizo = margemReal < 0;
     let margemCor, margemTexto;
-    if(prejuizo){ margemCor = '#e5674f'; margemTexto = `Prejuízo de ${Math.abs(margemReal).toFixed(1)}%`; }
-    else if(estourou){ margemCor = '#e3a94a'; margemTexto = `Margem de lucro: ${margemReal.toFixed(1)}%`; }
-    else { margemCor = '#4fd1e0'; margemTexto = `Margem de lucro: ${margemPadrao.toFixed(1)}%`; }
+    if(prejuizo){ margemCor = '#d5493a'; margemTexto = `Prejuízo de ${Math.abs(margemReal).toFixed(1)}%`; }
+    else if(estourou){ margemCor = '#c47d13'; margemTexto = `Margem de lucro: ${margemReal.toFixed(1)}%`; }
+    else { margemCor = '#6a5cff'; margemTexto = `Margem de lucro: ${margemPadrao.toFixed(1)}%`; }
     const margemHtml = orcamento>0 ? `
       <div style="margin-top:8px; font-size:12px; font-weight:700; color:${margemCor};">${margemTexto}</div>` : '';
 
     return `
     <div class="card" style="padding:13px; cursor:pointer;" onclick="selectedObraId='${o.id}'; renderObras(); document.getElementById('obraDetailAnchor').scrollIntoView({behavior:'smooth', block:'start'});">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-        <div style="font-size:14px; font-weight:700; line-height:1.25;">${o.name} <span style="color:#748ea0; font-size:11px;">▾ ver histórico</span></div>
+        <div style="font-size:14px; font-weight:700; line-height:1.25;">${o.name} <span style="color:#83838f; font-size:11px;">▾ ver histórico</span></div>
         <span class="${statusStyle(positivo)}">${o.status}${dias!=null && saldo>0.005 ? ` · ${dias}d` : ''}</span>
       </div>
-      <div style="font-size:11.5px; color:#748ea0; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} racks</div>
+      <div style="font-size:11.5px; color:#83838f; margin-top:4px;">${o.pontos_rede} pontos de rede · ${o.pontos_wifi} racks</div>
       ${entregaHtml}
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:10px;">
-        <div><div class="label" style="font-size:10px;">Contrato</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(total)}</div></div>
-        <div><div class="label" style="font-size:10px;">Recebido</div><div class="mono" style="font-size:13px; font-weight:700; color:#4fd1e0;">${BRL(recebido)}</div></div>
-        <div><div class="label" style="font-size:10px;">Gasto</div><div class="mono" style="font-size:13px; font-weight:700; color:${gasto>orcamento?'#e5674f':'#e3a94a'};">${BRL(gasto)}</div></div>
-        <div><div class="label" style="font-size:10px;">Saldo</div><div class="mono" style="font-size:13px; font-weight:700; color:#e3a94a;">${BRL(saldo)}</div></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 8px; margin-top:10px;">
+        <div><div class="label" style="font-size:10px;">Contrato</div><div class="mono" style="font-size:14px; font-weight:700;">${BRL(total)}</div></div>
+        <div><div class="label" style="font-size:10px;">Recebido</div><div class="mono" style="font-size:14px; font-weight:700; color:#6a5cff;">${BRL(recebido)}</div></div>
+        <div><div class="label" style="font-size:10px;">Gasto</div><div class="mono" style="font-size:14px; font-weight:700; color:${gasto>orcamento?'#d5493a':'#c47d13'};">${BRL(gasto)}</div></div>
+        <div><div class="label" style="font-size:10px;">Saldo</div><div class="mono" style="font-size:14px; font-weight:700; color:#c47d13;">${BRL(saldo)}</div></div>
       </div>
       ${margemHtml}
       ${adminAction}
@@ -520,20 +510,20 @@ function renderObras(){
   const o = state.obras.find(x=>x.id===selectedObraId);
   const items = [];
   if(o){
-    state.payments.filter(p=>p.obra_id===o.id).forEach(p=>items.push({data:p.date, desc:'Recebimento — '+p.note, valor:p.amount, cor:'#4fd1e0'}));
-    state.expenses.filter(e=>e.obra_id===o.id).forEach(e=>items.push({data:e.date, desc:e.description, valor:-e.amount, cor:'#e3a94a'}));
+    state.payments.filter(p=>p.obra_id===o.id).forEach(p=>items.push({data:p.date, desc:'Recebimento — '+p.note, valor:p.amount, cor:'#6a5cff'}));
+    state.expenses.filter(e=>e.obra_id===o.id).forEach(e=>items.push({data:e.date, desc:e.description, valor:-e.amount, cor:'#c47d13'}));
     state.attendance.filter(a=>a.obra_id===o.id).forEach(a=>{
       const w = state.workers.find(w=>w.id===a.worker_id);
-      items.push({data:a.date, desc:`Frequência — ${w?w.name:'?'}`, valor:null, cor:'#748ea0'});
+      items.push({data:a.date, desc:`Frequência — ${w?w.name:'?'}`, valor:null, cor:'#83838f'});
     });
-    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Saldo de adiantamento (a descontar) — '+((state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'), valor:null, cor:'#748ea0'}));
+    state.advances.filter(a=>a.obra_id===o.id).forEach(a=>items.push({data:a.date, desc:'Saldo de adiantamento (a descontar) — '+((state.workers.find(w=>w.id===a.worker_id)||{}).name||'?'), valor:null, cor:'#83838f'}));
   }
   items.sort((a,b)=>b.data.localeCompare(a.data));
   const extratoHtml = items.length ? items.map(it=>`
     <div class="row">
       <div style="display:flex; flex-direction:column; gap:2px;">
         <span style="font-size:13px; font-weight:600;">${it.desc}</span>
-        <span style="font-size:11px; color:#748ea0;">${brDate(it.data)}</span>
+        <span style="font-size:11px; color:#83838f;">${brDate(it.data)}</span>
       </div>
       <span class="mono" style="font-size:13.5px; font-weight:700; color:${it.cor};">${it.valor===null?'—':(it.valor>0?'+ ':'− ')+BRL(Math.abs(it.valor))}</span>
     </div>`).join('') : `<div class="empty">Nenhum lançamento para este colégio.</div>`;
@@ -550,9 +540,9 @@ function renderObras(){
       <div style="margin-top:6px;">
         <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Reembolso pendente — só desse colégio</div>
         <div class="card" style="overflow:hidden;">
-          ${linhas.length ? linhas.map(([p,v])=>`<div class="row"><span style="font-size:13px; font-weight:600;">${p}</span><span class="mono" style="font-size:13.5px; font-weight:700; color:#e3a94a;">${BRL(v)}</span></div>`).join('') : `<div class="empty">Nada pendente pra esse colégio.</div>`}
+          ${linhas.length ? linhas.map(([p,v])=>`<div class="row"><span style="font-size:13px; font-weight:600;">${p}</span><span class="mono" style="font-size:13.5px; font-weight:700; color:#c47d13;">${BRL(v)}</span></div>`).join('') : `<div class="empty">Nada pendente pra esse colégio.</div>`}
         </div>
-        ${pendentesObra.length ? `<div style="margin-top:6px; font-size:10.5px; color:#748ea0;">${pendentesObra.length} lançamento(s) — inclui retroativos sem data exata</div>` : ''}
+        ${pendentesObra.length ? `<div style="margin-top:6px; font-size:10.5px; color:#83838f;">${pendentesObra.length} lançamento(s) — inclui retroativos sem data exata</div>` : ''}
       </div>`;
   }
 
@@ -666,9 +656,9 @@ function renderEquipe(){
         const pct = Math.min((totalExecutado/o.pontos_rede)*100, 100);
         progressoHtml = `
           <div style="margin-top:8px;">
-            <div style="font-size:10.5px; color:#748ea0; margin-bottom:3px;">Executado em ${o.name}: ${totalExecutado} de ${o.pontos_rede} pontos (${pct.toFixed(0)}%)</div>
-            <div style="background:#22323f; border-radius:2px; height:6px; overflow:hidden;">
-              <div style="width:${pct}%; background:#4fd1e0; height:100%;"></div>
+            <div style="font-size:10.5px; color:#83838f; margin-bottom:3px;">Executado em ${o.name}: ${totalExecutado} de ${o.pontos_rede} pontos (${pct.toFixed(0)}%)</div>
+            <div style="background:#e6e6ea; border-radius:2px; height:6px; overflow:hidden;">
+              <div style="width:${pct}%; background:#6a5cff; height:100%;"></div>
             </div>
           </div>`;
       }
@@ -707,7 +697,7 @@ function renderEquipe(){
     const isOpen = expandedWorkerId===w.id;
     const historico = [...todos].sort((a,b)=>b.date.localeCompare(a.date));
     const historicoHtml = isOpen ? `
-      <div style="margin-top:10px; border-top:1px dashed #22323f; padding-top:8px;">
+      <div style="margin-top:10px; border-top:1px dashed #e6e6ea; padding-top:8px;">
         ${historico.length ? historico.map(a=>{
           const o = state.obras.find(o=>o.id===a.obra_id);
           const valorLinha = a.fixed_amount!=null ? Number(a.fixed_amount) : (w.rate!=null ? w.rate*(a.count||1) : 0);
@@ -715,10 +705,10 @@ function renderEquipe(){
           let statusTxt = 'pendente', statusCls = 'badge pend';
           if(a.paid){ statusTxt='pago'; statusCls='badge ok'; }
           else if(pago>0){ statusTxt='parcial'; statusCls='badge pend'; }
-          return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #1a2530;">
+          return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #e6e6ea;">
             <div style="display:flex; flex-direction:column; gap:1px;">
               <span style="font-size:12px; font-weight:600;">${a.count} ${unitLabel(w)} · ${o?o.name:'Geral'}</span>
-              <span style="font-size:10px; color:#748ea0;">${brDate(a.date)}${a.note?' · '+a.note:''}</span>
+              <span style="font-size:10px; color:#83838f;">${brDate(a.date)}${a.note?' · '+a.note:''}</span>
             </div>
             <div style="text-align:right;">
               <span class="${statusCls}" style="font-size:9px;">${statusTxt}</span>
@@ -731,18 +721,18 @@ function renderEquipe(){
     return `
     <div class="card" style="padding:13px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; cursor:pointer;" onclick="expandedWorkerId=expandedWorkerId==='${w.id}'?null:'${w.id}'; renderEquipe();">
-        <div style="font-size:14px; font-weight:700;">${w.name} <span style="color:#748ea0; font-size:11px;">${isOpen?'▲':'▼'}</span></div>
+        <div style="font-size:14px; font-weight:700;">${w.name} <span style="color:#83838f; font-size:11px;">${isOpen?'▲':'▼'}</span></div>
         <div style="display:flex; gap:6px; align-items:center;">
           ${acertado ? `<span class="badge ok">Acertado · pago 100%</span>` : ''}
           <span class="${statusInfo.cls}">${statusInfo.label}</span>
         </div>
       </div>
-      <div style="font-size:11px; color:#748ea0; margin-top:2px;">${rateLabel(w)} · executado: ${totalExecutado} ${unidade}</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:10px;">
-        <div><div class="label" style="font-size:10px;">Pendente</div><div class="mono" style="font-size:13px; font-weight:700;">${pend.length} (${BRL(valorPendente)})</div></div>
-        <div><div class="label" style="font-size:10px;">Adiantado</div><div class="mono" style="font-size:13px; font-weight:700;">${BRL(adiant)}</div></div>
-        <div><div class="label" style="font-size:10px;">Já pago</div><div class="mono" style="font-size:13px; font-weight:700; color:#4fd1e0;">${BRL(totalPago)}</div></div>
-        <div><div class="label" style="font-size:10px;">Saldo líquido</div><div class="mono" style="font-size:13px; font-weight:700; color:${net>=0?'#e3a94a':'#4fd1e0'};">${BRL(net)}</div></div>
+      <div style="font-size:11px; color:#83838f; margin-top:2px;">${rateLabel(w)} · executado: ${totalExecutado} ${unidade}</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 8px; margin-top:10px;">
+        <div><div class="label" style="font-size:10px;">Pendente</div><div class="mono" style="font-size:14px; font-weight:700;">${pend.length} (${BRL(valorPendente)})</div></div>
+        <div><div class="label" style="font-size:10px;">Adiantado</div><div class="mono" style="font-size:14px; font-weight:700;">${BRL(adiant)}</div></div>
+        <div><div class="label" style="font-size:10px;">Já pago</div><div class="mono" style="font-size:14px; font-weight:700; color:#6a5cff;">${BRL(totalPago)}</div></div>
+        <div><div class="label" style="font-size:10px;">Saldo líquido</div><div class="mono" style="font-size:14px; font-weight:700; color:${net>=0?'#c47d13':'#6a5cff'};">${BRL(net)}</div></div>
       </div>
       ${progressoHtml}
       ${historicoHtml}
@@ -757,7 +747,7 @@ function renderEquipe(){
     <div class="row">
       <div style="display:flex; flex-direction:column; gap:2px;">
         <span style="font-size:13px; font-weight:600;">${w?w.name:'?'}</span>
-        <span style="font-size:11px; color:#748ea0;">${brDate(a.date)}</span>
+        <span style="font-size:11px; color:#83838f;">${brDate(a.date)}</span>
       </div>
       <span class="mono" style="font-size:13.5px; font-weight:700;">${BRL(a.amount)}</span>
     </div>`;
@@ -769,10 +759,10 @@ function renderEquipe(){
     <div class="row">
       <div style="display:flex; flex-direction:column; gap:2px;">
         <span style="font-size:13px; font-weight:600;">${w?w.name:'?'}</span>
-        <span style="font-size:11px; color:#748ea0;">${brDate(a.date)}</span>
+        <span style="font-size:11px; color:#83838f;">${brDate(a.date)}</span>
       </div>
       <span class="${statusStyle(a.paid)}">${a.paid?'pago':(Number(a.paid_amount||0)>0?'parcial':'pendente')}</span>
-      ${(!a.paid && Number(a.paid_amount||0)>0) ? `<span style="font-size:10.5px; color:#748ea0; margin-left:6px;">resta ${BRL(attendanceValue(a))}</span>` : ''}
+      ${(!a.paid && Number(a.paid_amount||0)>0) ? `<span style="font-size:10.5px; color:#83838f; margin-left:6px;">resta ${BRL(attendanceValue(a))}</span>` : ''}
     </div>`;
   }).join('') : `<div class="empty">Nenhum registro de frequência.</div>`;
 
@@ -943,12 +933,12 @@ function renderGastos(){
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div style="min-width:0;">
           <div style="font-size:13.5px; font-weight:700; line-height:1.25;">${g.description}</div>
-          <div style="font-size:11px; color:#748ea0; margin-top:2px;">${g.category} · ${o?o.name:'Geral'}</div>
+          <div style="font-size:11px; color:#83838f; margin-top:2px;">${g.category} · ${o?o.name:'Geral'}</div>
         </div>
         <span class="${statusStyle(g.reimbursed)}">${gastoStatusLabel(g)}</span>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-        <span style="font-size:11.5px; color:#748ea0;">pago por <strong style="color:#dbe6ec;">${g.paid_by}</strong> · ${brDate(g.date)}</span>
+        <span style="font-size:11.5px; color:#83838f;">pago por <strong style="color:#1a1a24;">${g.paid_by}</strong> · ${brDate(g.date)}</span>
         <span class="mono" style="font-size:14px; font-weight:700;">${BRL(g.amount)}</span>
       </div>
       ${isAdmin ? `<button class="btn small ghost" style="margin-top:8px;" onclick="editingExpenseId='${g.id}'; renderGastos();">Editar</button>` : ''}
@@ -1018,12 +1008,12 @@ function renderRecebimentos(){
     <div class="card" style="padding:13px;">
       <div style="font-size:13.5px; font-weight:700;">${o?o.name:'Geral'}</div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-        <span style="font-size:11.5px; color:#748ea0;">${brDate(r.date)}</span>
-        <span class="mono" style="font-size:14px; font-weight:700; color:#4fd1e0;">${BRL(r.amount)}</span>
+        <span style="font-size:11.5px; color:#83838f;">${brDate(r.date)}</span>
+        <span class="mono" style="font-size:14px; font-weight:700; color:#6a5cff;">${BRL(r.amount)}</span>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-        <span style="font-size:11px; color:#748ea0;">saldo restante</span>
-        <span class="mono" style="font-size:12.5px; font-weight:600; color:#e3a94a;">${BRL(r.remaining)}</span>
+        <span style="font-size:11px; color:#83838f;">saldo restante</span>
+        <span class="mono" style="font-size:12.5px; font-weight:600; color:#c47d13;">${BRL(r.remaining)}</span>
       </div>
     </div>`;
   }).join('') : `<div class="empty">Nenhum recebimento registrado.</div>`;
